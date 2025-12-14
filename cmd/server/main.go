@@ -1,12 +1,16 @@
 package main
 
 import (
+	"database/sql"
+	"net/http"
 	"os"
 
+	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/auth"
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/signaler"
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/turn"
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/websocket"
+	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/ini.v1"
 )
 
@@ -17,6 +21,23 @@ func main() {
 		logger.Errorf("Fail to read file: %v", err)
 		os.Exit(1)
 	}
+
+	// init MySQL
+	mysqlDSN := cfg.Section("mysql").Key("dsn").String()
+	if len(mysqlDSN) == 0 {
+		logger.Errorf("mysql.dsn is required in configs/config.ini")
+		os.Exit(1)
+	}
+	db, err := sql.Open("mysql", mysqlDSN)
+	if err != nil {
+		logger.Errorf("Fail to open mysql: %v", err)
+		os.Exit(1)
+	}
+	if err = db.Ping(); err != nil {
+		logger.Errorf("Fail to ping mysql: %v", err)
+		os.Exit(1)
+	}
+	authService := &auth.Service{DB: db}
 
 	publicIP := cfg.Section("turn").Key("public_ip").String()
 	stunPort, err := cfg.Section("turn").Key("port").Int()
@@ -33,6 +54,12 @@ func main() {
 
 	signaler := signaler.NewSignaler(turn)
 	wsServer := websocket.NewWebSocketServer(signaler.HandleNewWebSocket, signaler.HandleTurnServerCredentials)
+
+	// register auth HTTP handlers
+	http.HandleFunc("/api/auth/check-email", authService.HandleCheckEmail)
+	http.HandleFunc("/api/auth/login", authService.HandleLogin)
+	http.HandleFunc("/api/auth/verify-code", authService.HandleVerifyCode)
+	http.HandleFunc("/api/auth/register", authService.HandleRegister)
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()
