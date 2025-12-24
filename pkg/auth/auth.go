@@ -282,3 +282,154 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
+
+// DeviceBinding 设备绑定结构
+type DeviceBinding struct {
+	ID             uint64    `json:"id"`
+	MonitorEmail   string    `json:"monitor_email"`
+	CameraEmail    string    `json:"camera_email"`
+	CameraDeviceID string    `json:"camera_device_id"`
+	CameraName     string    `json:"camera_name"`
+	CameraLocation string    `json:"camera_location"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// AddBindingRequest 添加绑定请求
+type AddBindingRequest struct {
+	MonitorEmail   string `json:"monitor_email"`
+	CameraEmail    string `json:"camera_email"`
+	CameraDeviceID string `json:"camera_device_id"`
+	CameraName     string `json:"camera_name"`
+	CameraLocation string `json:"camera_location"`
+}
+
+// HandleAddBinding 添加设备绑定关系
+func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req AddBindingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	// 验证必填字段
+	if req.MonitorEmail == "" || req.CameraEmail == "" || req.CameraDeviceID == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "monitor_email, camera_email and camera_device_id are required"})
+		return
+	}
+
+	// 检查是否已存在绑定关系
+	var existingID uint64
+	err := s.DB.QueryRow(
+		"SELECT id FROM device_bindings WHERE monitor_email = ? AND camera_email = ? AND camera_device_id = ?",
+		req.MonitorEmail, req.CameraEmail, req.CameraDeviceID,
+	).Scan(&existingID)
+
+	if err == nil {
+		// 已存在，更新状态为active
+		_, err = s.DB.Exec(
+			"UPDATE device_bindings SET status = 'active', camera_name = ?, camera_location = ? WHERE id = ?",
+			req.CameraName, req.CameraLocation, existingID,
+		)
+		if err != nil {
+			logger.Errorf("update binding error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, jsonResponse{
+			Success: true,
+			Message: "binding updated",
+			Data:    map[string]interface{}{"id": existingID},
+		})
+		return
+	} else if err != sql.ErrNoRows {
+		logger.Errorf("check binding exists error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	// 插入新绑定关系
+	res, err := s.DB.Exec(
+		"INSERT INTO device_bindings (monitor_email, camera_email, camera_device_id, camera_name, camera_location, status) VALUES (?, ?, ?, ?, ?, 'active')",
+		req.MonitorEmail, req.CameraEmail, req.CameraDeviceID, req.CameraName, req.CameraLocation,
+	)
+	if err != nil {
+		logger.Errorf("insert binding error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	bindingID, _ := res.LastInsertId()
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "binding created",
+		Data:    map[string]interface{}{"id": bindingID},
+	})
+}
+
+// HandleGetBindingsByMonitor 通过监控端邮箱查询绑定关系
+func (s *Service) HandleGetBindingsByMonitor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	// 从查询参数获取监控端邮箱
+	monitorEmail := r.URL.Query().Get("monitor_email")
+	if monitorEmail == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "monitor_email parameter is required"})
+		return
+	}
+
+	// 查询绑定关系
+	rows, err := s.DB.Query(
+		"SELECT id, monitor_email, camera_email, camera_device_id, camera_name, camera_location, status, created_at, updated_at FROM device_bindings WHERE monitor_email = ? AND status != 'revoked' ORDER BY created_at DESC",
+		monitorEmail,
+	)
+	if err != nil {
+		logger.Errorf("query bindings error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+	defer rows.Close()
+
+	var bindings []DeviceBinding
+	for rows.Next() {
+		var binding DeviceBinding
+		err := rows.Scan(
+			&binding.ID,
+			&binding.MonitorEmail,
+			&binding.CameraEmail,
+			&binding.CameraDeviceID,
+			&binding.CameraName,
+			&binding.CameraLocation,
+			&binding.Status,
+			&binding.CreatedAt,
+			&binding.UpdatedAt,
+		)
+		if err != nil {
+			logger.Errorf("scan binding error: %v", err)
+			continue
+		}
+		bindings = append(bindings, binding)
+	}
+
+	if err = rows.Err(); err != nil {
+		logger.Errorf("rows error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Data:    bindings,
+	})
+}

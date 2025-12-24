@@ -61,6 +61,10 @@ func main() {
 	http.HandleFunc("/api/auth/verify-code", authService.HandleVerifyCode)
 	http.HandleFunc("/api/auth/register", authService.HandleRegister)
 
+	// register device binding handlers
+	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
+	http.HandleFunc("/api/device/get-bindings", authService.HandleGetBindingsByMonitor)
+
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()
 	bindAddress := cfg.Section("general").Key("bind").String()
