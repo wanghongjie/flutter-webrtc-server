@@ -15,6 +15,7 @@ import (
 // Service wraps dependencies required for authentication related handlers.
 type Service struct {
 	DB *sql.DB
+	Mailer Mailer
 }
 
 type User struct {
@@ -110,8 +111,21 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: integrate with real email service. For now just log the code.
-	logger.Infof("Send verification code %s to email %s", code, email)
+	// Send verification code via email if configured; fallback to log.
+	if s.Mailer != nil {
+		if err := s.Mailer.SendVerificationCode(email, code); err != nil {
+			logger.Errorf("send verification code email error: %v", err)
+			// Best-effort cleanup: invalidate latest code if email delivery failed.
+			_, _ = s.DB.Exec(
+				"UPDATE email_verification_codes SET expires_at = ? WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1",
+				time.Now(), email, code,
+			)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "failed to send verification email"})
+			return
+		}
+	} else {
+		logger.Infof("Send verification code %s to email %s", code, email)
+	}
 
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,

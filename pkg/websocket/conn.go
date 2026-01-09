@@ -100,10 +100,10 @@ func (conn *WebSocketConn) Close() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	if conn.closed == false {
-		logger.Infof("Close ws conn now : ", conn)
-		conn.socket.Close()
+		logger.Infof("Close ws conn now: %v", conn)
+		_ = conn.socket.Close()
 		conn.closed = true
 	} else {
-		logger.Warnf("Transport already closed :", conn)
+		logger.Warnf("Transport already closed: %v", conn)
 	}
 }

@@ -37,7 +37,36 @@ func main() {
 		logger.Errorf("Fail to ping mysql: %v", err)
 		os.Exit(1)
 	}
-	authService := &auth.Service{DB: db}
+
+	// init SMTP mailer (optional)
+	var mailer auth.Mailer
+	smtpHost := cfg.Section("smtp").Key("host").String()
+	smtpPort, _ := cfg.Section("smtp").Key("port").Int()
+	smtpUser := cfg.Section("smtp").Key("username").String()
+	smtpPass := cfg.Section("smtp").Key("password").String()
+	fromEmail := cfg.Section("smtp").Key("from_email").String()
+	fromName := cfg.Section("smtp").Key("from_name").String()
+	subject := cfg.Section("smtp").Key("subject").String()
+	useTLS, _ := cfg.Section("smtp").Key("use_tls").Bool()
+	skipVerify, _ := cfg.Section("smtp").Key("skip_verify").Bool()
+	if smtpHost != "" && smtpPort != 0 && fromEmail != "" {
+		mailer = auth.NewSMTPMailer(auth.SMTPConfig{
+			Host:       smtpHost,
+			Port:       smtpPort,
+			Username:   smtpUser,
+			Password:   smtpPass,
+			FromEmail:  fromEmail,
+			FromName:   fromName,
+			Subject:    subject,
+			UseTLS:     useTLS,
+			SkipVerify: skipVerify,
+		})
+		logger.Infof("SMTP mailer enabled: %s:%d", smtpHost, smtpPort)
+	} else {
+		logger.Warnf("SMTP not configured; verification codes will be logged only")
+	}
+
+	authService := &auth.Service{DB: db, Mailer: mailer}
 
 	publicIP := cfg.Section("turn").Key("public_ip").String()
 	stunPort, err := cfg.Section("turn").Key("port").Int()
