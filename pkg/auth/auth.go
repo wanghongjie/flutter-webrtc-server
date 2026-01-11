@@ -305,6 +305,7 @@ type DeviceBinding struct {
 	CameraDeviceID string    `json:"camera_device_id"`
 	CameraName     string    `json:"camera_name"`
 	CameraLocation string    `json:"camera_location"`
+	CameraOnline   bool      `json:"camera_online"`
 	Status         string    `json:"status"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
@@ -505,7 +506,7 @@ func (s *Service) HandleGetBindingsByMonitor(w http.ResponseWriter, r *http.Requ
 
 	// 查询绑定关系
 	rows, err := s.DB.Query(
-		"SELECT id, monitor_email, camera_email, camera_device_id, camera_name, camera_location, status, created_at, updated_at FROM device_bindings WHERE monitor_email = ? AND status != 'revoked' ORDER BY created_at DESC",
+		"SELECT id, monitor_email, camera_email, camera_device_id, camera_name, camera_location, camera_online, status, created_at, updated_at FROM device_bindings WHERE monitor_email = ? AND status != 'revoked' ORDER BY created_at DESC",
 		monitorEmail,
 	)
 	if err != nil {
@@ -525,6 +526,7 @@ func (s *Service) HandleGetBindingsByMonitor(w http.ResponseWriter, r *http.Requ
 			&binding.CameraDeviceID,
 			&binding.CameraName,
 			&binding.CameraLocation,
+			&binding.CameraOnline,
 			&binding.Status,
 			&binding.CreatedAt,
 			&binding.UpdatedAt,
