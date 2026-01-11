@@ -82,6 +82,8 @@ func main() {
 	turn := turn.NewTurnServer(turnConfig)
 
 	signaler := signaler.NewSignaler(turn)
+	// Inject DB so signaler can update camera_online based on peer_id (camera_device_id).
+	signaler.SetDB(db)
 	wsServer := websocket.NewWebSocketServer(signaler.HandleNewWebSocket, signaler.HandleTurnServerCredentials)
 
 	// register auth HTTP handlers
@@ -93,6 +95,8 @@ func main() {
 	// register device binding handlers
 	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
 	http.HandleFunc("/api/device/get-bindings", authService.HandleGetBindingsByMonitor)
+	http.HandleFunc("/api/device/update-camera-info", authService.HandleUpdateCameraInfoByDeviceID)
+	http.HandleFunc("/api/device/delete-camera", authService.HandleDeleteCameraByDeviceID)
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()

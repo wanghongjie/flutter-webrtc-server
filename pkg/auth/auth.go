@@ -389,6 +389,106 @@ func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// UpdateCameraInfoRequest 通过 camera_device_id 更新相机名称/位置
+type UpdateCameraInfoRequest struct {
+	CameraDeviceID string `json:"camera_device_id"`
+	CameraName     string `json:"camera_name"`
+	CameraLocation string `json:"camera_location"`
+}
+
+// HandleUpdateCameraInfoByDeviceID updates camera_name and camera_location by camera_device_id.
+// Note: if same camera_device_id is bound to multiple monitors, it will update all matching rows.
+func (s *Service) HandleUpdateCameraInfoByDeviceID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req UpdateCameraInfoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	if req.CameraDeviceID == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "camera_device_id is required"})
+		return
+	}
+	// 至少更新一个字段
+	if req.CameraName == "" && req.CameraLocation == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "camera_name or camera_location is required"})
+		return
+	}
+
+	res, err := s.DB.Exec(
+		"UPDATE device_bindings SET camera_name = COALESCE(NULLIF(?, ''), camera_name), camera_location = COALESCE(NULLIF(?, ''), camera_location) WHERE camera_device_id = ? AND status != 'revoked'",
+		req.CameraName, req.CameraLocation, req.CameraDeviceID,
+	)
+	if err != nil {
+		logger.Errorf("update camera info error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "no binding found for this camera_device_id"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "camera info updated",
+		Data:    map[string]interface{}{"affected": affected},
+	})
+}
+
+// DeleteCameraRequest 通过 camera_device_id 删除(撤销)相机绑定关系
+type DeleteCameraRequest struct {
+	CameraDeviceID string `json:"camera_device_id"`
+}
+
+// HandleDeleteCameraByDeviceID revokes device bindings by camera_device_id.
+// It performs a soft-delete by setting status='revoked'.
+func (s *Service) HandleDeleteCameraByDeviceID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req DeleteCameraRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	if req.CameraDeviceID == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "camera_device_id is required"})
+		return
+	}
+
+	res, err := s.DB.Exec(
+		"UPDATE device_bindings SET status = 'revoked' WHERE camera_device_id = ? AND status != 'revoked'",
+		req.CameraDeviceID,
+	)
+	if err != nil {
+		logger.Errorf("delete(revoke) camera bindings error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "no binding found for this camera_device_id"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "camera bindings revoked",
+		Data:    map[string]interface{}{"affected": affected},
+	})
+}
+
 // HandleGetBindingsByMonitor 通过监控端邮箱查询绑定关系
 func (s *Service) HandleGetBindingsByMonitor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

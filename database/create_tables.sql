@@ -32,6 +32,7 @@ CREATE TABLE device_bindings (
   camera_device_id VARCHAR(100) NOT NULL COMMENT '相机端设备ID（WebRTC peer ID）',
   camera_name VARCHAR(255) COMMENT '相机端自定义名称',
   camera_location VARCHAR(255) COMMENT '相机端位置信息',
+  camera_online TINYINT(1) NOT NULL DEFAULT 0 COMMENT '相机是否在线(0离线/1在线)',
   status ENUM('pending', 'active', 'revoked') DEFAULT 'pending' COMMENT '绑定状态',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

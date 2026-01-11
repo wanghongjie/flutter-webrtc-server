@@ -3,6 +3,7 @@ package signaler
 import (
 	"crypto/hmac"
 	"crypto/sha1"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -86,6 +87,7 @@ type Signaler struct {
 	sessions  map[string]Session
 	turn      *turn.TurnServer
 	expresMap *util.ExpiredMap
+	db        *sql.DB
 }
 
 func NewSignaler(turn *turn.TurnServer) *Signaler {
@@ -94,9 +96,33 @@ func NewSignaler(turn *turn.TurnServer) *Signaler {
 		sessions:  make(map[string]Session),
 		turn:      turn,
 		expresMap: util.NewExpiredMap(),
+		db:        nil,
 	}
 	signaler.turn.AuthHandler = signaler.authHandler
 	return signaler
+}
+
+// SetDB injects DB for updating camera online state (optional).
+func (s *Signaler) SetDB(db *sql.DB) {
+	s.db = db
+}
+
+func (s *Signaler) setCameraOnlineByDeviceID(cameraDeviceID string, online bool) {
+	if s.db == nil || cameraDeviceID == "" {
+		return
+	}
+	val := 0
+	if online {
+		val = 1
+	}
+	// Only affect non-revoked bindings; update all rows with this device id.
+	_, err := s.db.Exec(
+		"UPDATE device_bindings SET camera_online = ? WHERE camera_device_id = ? AND status != 'revoked'",
+		val, cameraDeviceID,
+	)
+	if err != nil {
+		logger.Warnf("update camera_online failed for device_id=%s: %v", cameraDeviceID, err)
+	}
 }
 
 func (s Signaler) authHandler(username string, realm string, srcAddr net.Addr) (string, bool) {
@@ -222,6 +248,8 @@ func (s *Signaler) HandleNewWebSocket(conn *websocket.WebSocketConn, request *ht
 				conn: conn,
 				info: info,
 			}
+			// If this peer_id corresponds to a camera_device_id, mark camera online.
+			s.setCameraOnlineByDeviceID(info.ID, true)
 			s.NotifyPeersUpdate(conn, s.peers)
 			break
 		case Leave:
@@ -331,6 +359,8 @@ func (s *Signaler) HandleNewWebSocket(conn *websocket.WebSocketConn, request *ht
 			logger.Infof("Leve peer id not found")
 			return
 		}
+		// If this peer_id corresponds to a camera_device_id, mark camera offline.
+		s.setCameraOnlineByDeviceID(peerID, false)
 		delete(s.peers, peerID)
 
 		s.NotifyPeersUpdate(conn, s.peers)
