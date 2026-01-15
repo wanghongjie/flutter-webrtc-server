@@ -41,3 +41,18 @@ CREATE TABLE device_bindings (
   INDEX idx_camera_device_id (camera_device_id),
   UNIQUE KEY uk_monitor_camera (monitor_email, camera_email, camera_device_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备绑定关系表';
+
+-- 创建意见反馈表
+CREATE TABLE feedbacks (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) NULL COMMENT '反馈人邮箱（可选）',
+  device_id VARCHAR(100) NULL COMMENT '设备ID（可选）',
+  content TEXT NOT NULL COMMENT '反馈内容',
+  contact VARCHAR(255) NULL COMMENT '联系方式（可选）',
+  ip VARCHAR(45) NULL COMMENT '提交IP',
+  user_agent VARCHAR(512) NULL COMMENT 'User-Agent',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_email (email),
+  INDEX idx_device_id (device_id),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='意见反馈表';

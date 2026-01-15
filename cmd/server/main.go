@@ -98,6 +98,9 @@ func main() {
 	http.HandleFunc("/api/device/update-camera-info", authService.HandleUpdateCameraInfoByDeviceID)
 	http.HandleFunc("/api/device/delete-camera", authService.HandleDeleteCameraByDeviceID)
 
+	// feedback
+	http.HandleFunc("/api/feedback/submit", authService.HandleSubmitFeedback)
+
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()
 	bindAddress := cfg.Section("general").Key("bind").String()

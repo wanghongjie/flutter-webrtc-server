@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
@@ -33,6 +34,25 @@ func writeJSON(w http.ResponseWriter, status int, resp jsonResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// clientIP tries to get the real client ip (behind proxy) with fallback to RemoteAddr.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return strings.TrimSpace(xrip)
+	}
+	// r.RemoteAddr is like "ip:port"
+	host := r.RemoteAddr
+	if i := strings.LastIndex(host, ":"); i > 0 {
+		return host[:i]
+	}
+	return host
 }
 
 // generateCode returns a numeric verification code with the given length.
@@ -488,6 +508,71 @@ func (s *Service) HandleDeleteCameraByDeviceID(w http.ResponseWriter, r *http.Re
 		Message: "camera bindings revoked",
 		Data:    map[string]interface{}{"affected": affected},
 	})
+}
+
+// SubmitFeedbackRequest 提交意见反馈请求
+type SubmitFeedbackRequest struct {
+	Email    string `json:"email"`
+	DeviceID string `json:"device_id"`
+	Content  string `json:"content"`
+	Contact  string `json:"contact"`
+}
+
+// HandleSubmitFeedback 提交意见反馈
+func (s *Service) HandleSubmitFeedback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req SubmitFeedbackRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Content == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "content is required"})
+		return
+	}
+	// 简单限制，防止过大内容
+	if len(req.Content) > 5000 {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "content too long"})
+		return
+	}
+
+	ip := clientIP(r)
+	ua := r.UserAgent()
+
+	res, err := s.DB.Exec(
+		"INSERT INTO feedbacks (email, device_id, content, contact, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)",
+		nullIfEmpty(req.Email),
+		nullIfEmpty(req.DeviceID),
+		req.Content,
+		nullIfEmpty(req.Contact),
+		nullIfEmpty(ip),
+		nullIfEmpty(ua),
+	)
+	if err != nil {
+		logger.Errorf("insert feedback error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+	id, _ := res.LastInsertId()
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "feedback submitted",
+		Data:    map[string]interface{}{"id": id},
+	})
+}
+
+func nullIfEmpty(s string) interface{} {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
 }
 
 // HandleGetBindingsByMonitor 通过监控端邮箱查询绑定关系
