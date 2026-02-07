@@ -345,23 +345,27 @@ func (s *Signaler) HandleNewWebSocket(conn *websocket.WebSocketConn, request *ht
 		for _, peer := range s.peers {
 			if peer.conn == conn {
 				peerID = peer.info.ID
-			} else {
-				leave := Request{
-					Type: "leave",
-					Data: peer.info.ID,
-				}
-				s.Send(peer.conn, leave)
+				break
 			}
 		}
 
-		logger.Infof("Remove peer %s", peerID)
 		if peerID == "" {
-			logger.Infof("Leve peer id not found")
+			logger.Infof("Leave peer id not found")
 			return
 		}
 		// If this peer_id corresponds to a camera_device_id, mark camera offline.
 		s.setCameraOnlineByDeviceID(peerID, false)
+
+		logger.Infof("Remove peer %s", peerID)
 		delete(s.peers, peerID)
+
+		for _, peer := range s.peers {
+			leave := Request{
+				Type: "leave",
+				Data: peerID,
+			}
+			s.Send(peer.conn, leave)
+		}
 
 		s.NotifyPeersUpdate(conn, s.peers)
 	})
