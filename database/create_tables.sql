@@ -9,6 +9,7 @@ CREATE TABLE users (
   id           BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   email        VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  status       ENUM('active', 'deleted') NOT NULL DEFAULT 'active' COMMENT '用户状态',
   created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

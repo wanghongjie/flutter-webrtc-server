@@ -99,7 +99,7 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var count int
-	err := s.DB.QueryRow("SELECT COUNT(1) FROM users WHERE email = ?", email).Scan(&count)
+	err := s.DB.QueryRow("SELECT COUNT(1) FROM users WHERE email = ? AND status = 'active'", email).Scan(&count)
 	if err != nil {
 		logger.Errorf("check email query error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
@@ -182,7 +182,7 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		id           uint64
 		passwordHash string
 	)
-	err := s.DB.QueryRow("SELECT id, password_hash FROM users WHERE email = ?", req.Email).
+	err := s.DB.QueryRow("SELECT id, password_hash FROM users WHERE email = ? AND status = 'active'", req.Email).
 		Scan(&id, &passwordHash)
 	if err == sql.ErrNoRows {
 		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or password"})
@@ -278,13 +278,18 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if user already exists
-	var count int
-	if err := s.DB.QueryRow("SELECT COUNT(1) FROM users WHERE email = ?", req.Email).Scan(&count); err != nil {
+	var (
+		currentStatus string
+		existingID    uint64
+	)
+	err := s.DB.QueryRow("SELECT id, status FROM users WHERE email = ?", req.Email).Scan(&existingID, &currentStatus)
+	if err != nil && err != sql.ErrNoRows {
 		logger.Errorf("check user exists error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
 		return
 	}
-	if count > 0 {
+
+	if err == nil && currentStatus == "active" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email already registered"})
 		return
 	}
@@ -300,13 +305,26 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := s.DB.Exec("INSERT INTO users (email, password_hash) VALUES (?, ?)", req.Email, string(hash))
-	if err != nil {
-		logger.Errorf("insert user error: %v", err)
-		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
-		return
+	var userID int64
+	if err == nil && currentStatus == "deleted" {
+		// Reactivate deleted user
+		_, err = s.DB.Exec("UPDATE users SET password_hash = ?, status = 'active' WHERE id = ?", string(hash), existingID)
+		if err != nil {
+			logger.Errorf("reactivate user error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+			return
+		}
+		userID = int64(existingID)
+	} else {
+		// Insert new user
+		res, err := s.DB.Exec("INSERT INTO users (email, password_hash, status) VALUES (?, ?, 'active')", req.Email, string(hash))
+		if err != nil {
+			logger.Errorf("insert user error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+			return
+		}
+		userID, _ = res.LastInsertId()
 	}
-	userID, _ := res.LastInsertId()
 
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
@@ -573,6 +591,57 @@ func nullIfEmpty(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+type deleteAccountRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// HandleDeleteAccount soft-deletes a user account.
+func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req deleteAccountRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	if req.Email == "" || req.Password == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and password required"})
+		return
+	}
+
+	// Verify user credentials
+	var passwordHash string
+	err := s.DB.QueryRow("SELECT password_hash FROM users WHERE email = ? AND status = 'active'", req.Email).Scan(&passwordHash)
+	if err == sql.ErrNoRows {
+		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or password"})
+		return
+	} else if err != nil {
+		logger.Errorf("delete account query error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) != nil {
+		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or password"})
+		return
+	}
+
+	// Soft delete user
+	_, err = s.DB.Exec("UPDATE users SET status = 'deleted' WHERE email = ?", req.Email)
+	if err != nil {
+		logger.Errorf("delete account update error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{Success: true, Message: "account deleted"})
 }
 
 // HandleGetBindingsByMonitor 通过监控端邮箱查询绑定关系
