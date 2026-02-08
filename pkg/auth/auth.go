@@ -644,6 +644,66 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, jsonResponse{Success: true, Message: "account deleted"})
 }
 
+type resetPasswordRequest struct {
+	Email       string `json:"email"`
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+// HandleResetPassword verifies old password and updates to new password.
+func (s *Service) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req resetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	if req.Email == "" || req.OldPassword == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, old_password and new_password are required"})
+		return
+	}
+
+	// Verify old password
+	var passwordHash string
+	err := s.DB.QueryRow("SELECT password_hash FROM users WHERE email = ? AND status = 'active'", req.Email).Scan(&passwordHash)
+	if err == sql.ErrNoRows {
+		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or old password"})
+		return
+	} else if err != nil {
+		logger.Errorf("reset password query error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.OldPassword)) != nil {
+		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or old password"})
+		return
+	}
+
+	// Hash new password
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Errorf("hash new password error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	// Update password
+	_, err = s.DB.Exec("UPDATE users SET password_hash = ? WHERE email = ?", string(hash), req.Email)
+	if err != nil {
+		logger.Errorf("update password error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{Success: true, Message: "password updated"})
+}
+
 // HandleGetBindingsByMonitor 通过监控端邮箱查询绑定关系
 func (s *Service) HandleGetBindingsByMonitor(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

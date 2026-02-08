@@ -92,6 +92,7 @@ func main() {
 	http.HandleFunc("/api/auth/verify-code", authService.HandleVerifyCode)
 	http.HandleFunc("/api/auth/register", authService.HandleRegister)
 	http.HandleFunc("/api/auth/delete-account", authService.HandleDeleteAccount)
+	http.HandleFunc("/api/auth/reset-password", authService.HandleResetPassword)
 
 	// register device binding handlers
 	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
