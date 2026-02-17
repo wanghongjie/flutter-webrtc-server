@@ -9,11 +9,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// User 用户模型
 type User struct {
 	ID           uint64    `json:"id"`
 	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // 不在JSON中显示密码
+	PasswordHash string    `json:"-"`
+	VipLevel     uint8     `json:"vip_level"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -64,12 +64,13 @@ func CreateUser(email, password string) (*User, error) {
 // GetUserByEmail 根据邮箱获取用户
 func GetUserByEmail(email string) (*User, error) {
 	user := &User{}
-	query := `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`
+	query := `SELECT id, email, password_hash, vip_level, created_at FROM users WHERE email = ?`
 
 	err := database.DB.QueryRow(query, email).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
+		&user.VipLevel,
 		&user.CreatedAt,
 	)
 
@@ -87,12 +88,13 @@ func GetUserByEmail(email string) (*User, error) {
 // GetUserByID 根据ID获取用户
 func GetUserByID(id uint64) (*User, error) {
 	user := &User{}
-	query := `SELECT id, email, password_hash, created_at FROM users WHERE id = ?`
+	query := `SELECT id, email, password_hash, vip_level, created_at FROM users WHERE id = ?`
 
 	err := database.DB.QueryRow(query, id).Scan(
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
+		&user.VipLevel,
 		&user.CreatedAt,
 	)
 

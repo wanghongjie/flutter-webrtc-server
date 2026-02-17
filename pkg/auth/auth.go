@@ -15,13 +15,14 @@ import (
 
 // Service wraps dependencies required for authentication related handlers.
 type Service struct {
-	DB *sql.DB
+	DB     *sql.DB
 	Mailer Mailer
 }
 
 type User struct {
-	ID    uint64 `json:"id"`
-	Email string `json:"email"`
+	ID       uint64 `json:"id"`
+	Email    string `json:"email"`
+	VipLevel uint8  `json:"vip_level"`
 }
 
 type jsonResponse struct {
@@ -181,9 +182,10 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var (
 		id           uint64
 		passwordHash string
+		vipLevel     uint8
 	)
-	err := s.DB.QueryRow("SELECT id, password_hash FROM users WHERE email = ? AND status = 'active'", req.Email).
-		Scan(&id, &passwordHash)
+	err := s.DB.QueryRow("SELECT id, password_hash, vip_level FROM users WHERE email = ? AND status = 'active'", req.Email).
+		Scan(&id, &passwordHash, &vipLevel)
 	if err == sql.ErrNoRows {
 		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or password"})
 		return
@@ -201,8 +203,9 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Data: User{
-			ID:    id,
-			Email: req.Email,
+			ID:       id,
+			Email:    req.Email,
+			VipLevel: vipLevel,
 		},
 	})
 }
@@ -305,7 +308,10 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int64
+	var (
+		userID   int64
+		vipLevel uint8
+	)
 	if err == nil && currentStatus == "deleted" {
 		// Reactivate deleted user
 		_, err = s.DB.Exec("UPDATE users SET password_hash = ?, status = 'active' WHERE id = ?", string(hash), existingID)
@@ -315,6 +321,12 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userID = int64(existingID)
+		err = s.DB.QueryRow("SELECT vip_level FROM users WHERE id = ?", existingID).Scan(&vipLevel)
+		if err != nil {
+			logger.Errorf("query vip_level after reactivate error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+			return
+		}
 	} else {
 		// Insert new user
 		res, err := s.DB.Exec("INSERT INTO users (email, password_hash, status) VALUES (?, ?, 'active')", req.Email, string(hash))
@@ -324,13 +336,15 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userID, _ = res.LastInsertId()
+		vipLevel = 0
 	}
 
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Data: User{
-			ID:    uint64(userID),
-			Email: req.Email,
+			ID:       uint64(userID),
+			Email:    req.Email,
+			VipLevel: vipLevel,
 		},
 	})
 }

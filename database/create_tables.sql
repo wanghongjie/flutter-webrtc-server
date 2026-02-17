@@ -6,11 +6,12 @@ USE webrtc_db;
 
 -- 创建用户表
 CREATE TABLE users (
-  id           BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-  email        VARCHAR(255) NOT NULL UNIQUE,
+  id            BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  status       ENUM('active', 'deleted') NOT NULL DEFAULT 'active' COMMENT '用户状态',
-  created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  status        ENUM('active', 'deleted') NOT NULL DEFAULT 'active' COMMENT '用户状态',
+  vip_level     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 创建邮箱验证码表
