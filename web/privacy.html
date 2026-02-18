@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <title>隐私协议</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body>
+    <div class="safe-area-top"></div>
+    <header class="topbar topbar--sticky">
+      <div class="topbar__left"></div>
+      <div class="topbar__title">隐私协议</div>
+      <div class="topbar__right">
+        <button class="icon-btn" id="copyPageLink" type="button" aria-label="复制页面链接">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 4.93"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M14 11a5 5 0 01-7.07 0L5.52 9.59a5 5 0 017.07-7.07L14 4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="container container--doc">
+      <section class="doc-head">
+        <div class="doc-head__title">RePhone Security 隐私协议</div>
+        <div class="doc-head__meta">
+          <span>生效日期：<b>2026-01-17</b></span>
+          <span class="dot">·</span>
+          <span>版本：<b>V1.0</b></span>
+        </div>
+        <div class="callout">
+          <div class="callout__title">提示</div>
+          <div class="callout__text">
+            我们非常重视你的个人信息与隐私保护。本协议说明我们在你使用 RePhone Security 时如何收集、使用、共享与保护信息，以及你享有的权利。
+          </div>
+        </div>
+      </section>
+
+      <aside class="toc" aria-label="目录">
+        <div class="toc__title">目录</div>
+        <nav class="toc__nav" id="toc"></nav>
+      </aside>
+
+      <article class="doc" id="doc">
+        <h2>1. 适用范围</h2>
+        <p>
+          本《隐私协议》适用于 RePhone Security 移动应用（以下简称“本应用/本服务”）。
+          若你通过本服务访问第三方服务或链接（例如广告、外部网页），其信息处理规则以该第三方为准。
+        </p>
+
+        <h2>2. 我们是谁（个人信息处理者）</h2>
+        <p>
+          本服务由个人开发者提供与运营。你可以通过以下方式联系我们：<br />
+          邮箱：<b>dahongwudi123@gmail.com</b>
+        </p>
+
+        <h2>3. 我们收集哪些信息</h2>
+
+        <h3>3.1 账号与登录信息</h3>
+        <ul>
+          <li><b>邮箱</b>：用于登录与账号识别。</li>
+          <li><b>验证码/认证信息</b>：用于完成登录验证。</li>
+        </ul>
+
+        <h3>3.2 设备与运行信息</h3>
+        <p>为保障服务稳定与安全，我们可能收集：</p>
+        <ul>
+          <li>设备型号、系统版本、语言/时区、应用版本、网络类型、IP 地址。</li>
+          <li>必要的日志信息（例如崩溃日志、错误码、性能数据），用于故障排查与优化体验。</li>
+        </ul>
+
+        <h3>3.3 设备绑定与管理信息</h3>
+        <p>当你绑定与管理相机设备时，我们可能处理：</p>
+        <ul>
+          <li>相机设备标识（如 <b>camera_device_id</b>）。</li>
+          <li>相机名称、相机位置（由你输入/修改）。</li>
+          <li>相机在线状态（由服务端/连接状态计算得到）。</li>
+        </ul>
+
+        <h3>3.4 音视频与 WebRTC 连接相关信息</h3>
+        <p>
+          本服务使用 WebRTC 提供音视频实时连接能力。在建立连接过程中，可能会处理/产生：
+        </p>
+        <ul>
+          <li>信令信息（例如会话标识、SDP、ICE 候选等），用于建立与维护点对点连接。</li>
+          <li>为实现 NAT 穿透，本服务可能使用第三方 <b>STUN</b> 服务（例如 <b>stun.l.google.com:19302</b>）。
+            在此过程中，可能涉及你的公网 IP/网络信息被用于连接建立。</li>
+          <li>当点对点直连不可用时，可能会使用 <b>TURN</b> 中继服务（由我们的后端服务获取/下发中继参数），以保障连接可达性。</li>
+        </ul>
+        <p>
+          <b>关于音视频内容：</b>在默认情况下，我们不会主动保存你在本服务中的音视频内容到我们的服务器（除非未来你选择开启云端存储等功能，我们会另行征得你同意并更新本协议）。
+        </p>
+
+        <h3>3.5 录像保存到相册/图库</h3>
+        <p>
+          当你在监控端使用“录制/保存到相册”功能时，录像文件会保存到你的设备本地相册/图库。
+          我们不会读取你相册中的其他内容；你也可以在系统设置中随时关闭相关权限（关闭后该功能可能不可用）。
+        </p>
+
+        <h3>3.6 广告相关信息（第三方 SDK）</h3>
+        <p>
+          本服务可能接入第三方广告 SDK（例如 <b>Google Mobile Ads / AdMob</b>）展示广告。
+          该 SDK 可能会收集/使用与广告展示与归因相关的信息（可能包括但不限于：设备标识符、广告标识符、IP 地址、粗略位置信息、应用交互信息、诊断信息等），并可能根据其政策进行处理。
+        </p>
+        <p>
+          你可以参考 Google 的相关政策：
+          <br />
+          <b>Google 隐私政策：</b>https://policies.google.com/privacy
+          <br />
+          <b>Google 广告相关说明：</b>https://policies.google.com/technologies/ads
+        </p>
+
+        <h2>4. 我们如何使用信息</h2>
+        <ul>
+          <li>提供与维护核心功能（登录、绑定、音视频连接、设备管理等）。</li>
+          <li>保障账号与服务安全（反作弊、防滥用、风险控制）。</li>
+          <li>进行故障排查、性能分析与体验优化。</li>
+          <li>展示广告（如你所在地区/设备可用）。</li>
+        </ul>
+
+        <h2>5. 我们如何共享、转让、公开披露信息</h2>
+
+        <h3>5.1 共享</h3>
+        <p>我们仅在以下情形共享必要信息：</p>
+        <ul>
+          <li><b>向第三方服务提供方共享</b>：例如广告 SDK 提供方（Google）、STUN/TURN/网络服务提供方，用于实现广告展示与连接能力。</li>
+          <li><b>依法合规</b>：为遵守法律法规、司法或行政机关要求。</li>
+        </ul>
+
+        <h3>5.2 转让与公开披露</h3>
+        <p>
+          除非获得你明确同意或法律法规另有规定，我们不会转让或公开披露你的个人信息。
+        </p>
+
+        <h2>6. 信息存储与保存期限</h2>
+        <ul>
+          <li>我们会在实现本协议所述目的所必需的期限内保存相关信息，并在超出必要期限后进行删除或匿名化处理（如适用）。</li>
+          <li>你也可以通过退出登录、清除应用数据等方式清理本地存储的登录状态信息。</li>
+          <li>你保存到相册/图库的录像文件存储在你的设备本地，由你自行管理。</li>
+        </ul>
+
+        <h2>7. 我们如何保护信息安全</h2>
+        <p>
+          我们采取合理可行的安全措施（例如传输加密、访问控制、最小权限等）保护你的信息。
+          但请你理解，互联网环境并非绝对安全，我们无法保证信息绝对不被泄露。
+        </p>
+
+        <h2>8. 你的权利</h2>
+        <p>在适用法律法规允许的范围内，你可能享有以下权利：</p>
+        <ul>
+          <li>访问、更正你的账号信息（例如邮箱）。</li>
+          <li>删除或清理本地存储信息（退出登录/清除数据）。</li>
+          <li>撤回授权：你可以在系统设置中关闭相机、麦克风、相册/存储等权限（可能影响功能）。</li>
+          <li>就隐私相关问题向我们咨询或提出请求。</li>
+        </ul>
+
+        <h2>9. 未成年人保护</h2>
+        <p>
+          本服务不面向未满 14 周岁的未成年人提供。若你为未成年人，请在监护人同意与指导下使用。
+        </p>
+
+        <h2>10. 本协议如何更新</h2>
+        <p>
+          我们可能适时更新本协议。当发生重大变更，我们会通过显著方式提示你。
+          若你继续使用本服务，即表示你接受更新后的协议。
+        </p>
+
+        <h2>11. 联系我们</h2>
+        <p>
+          如你对本协议有任何疑问、意见或建议，请联系：<br />
+          邮箱：<b>dahongwudi123@gmail.com</b>
+        </p>
+      </article>
+
+      <button class="fab" id="backTop" type="button" aria-label="回到顶部">↑</button>
+    </main>
+
+    <div class="safe-area-bottom"></div>
+    <script src="./assets/app.js"></script>
+    <script>
+      window.H5Doc?.init({
+        tocEl: document.getElementById("toc"),
+        docEl: document.getElementById("doc"),
+        backTopEl: document.getElementById("backTop"),
+        copyPageLinkEl: document.getElementById("copyPageLink"),      });
+    </script>
+  </body>
+</html>
