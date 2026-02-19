@@ -16,26 +16,7 @@
     <header class="topbar topbar--sticky">
       <div class="topbar__left"></div>
       <div class="topbar__title">Terms of Service</div>
-      <div class="topbar__right">
-        <button class="icon-btn" id="copyPageLink" type="button" aria-label="Copy page link">
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M10 13a5 5 0 007.07 0l1.41-1.41a5 5 0 00-7.07-7.07L10 4.93"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M14 11a5 5 0 01-7.07 0L5.52 9.59a5 5 0 017.07-7.07L14 4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-      </div>
+      <div class="topbar__right"></div>
     </header>
 
     <main class="container container--doc">
@@ -162,7 +143,6 @@
         </p>
       </article>
 
-      <button class="fab" id="backTop" type="button" aria-label="Back to top">↑</button>
     </main>
 
     <div class="safe-area-bottom"></div>
@@ -170,9 +150,7 @@
     <script>
       window.H5Doc?.init({
         tocEl: document.getElementById("toc"),
-        docEl: document.getElementById("doc"),
-        backTopEl: document.getElementById("backTop"),
-        copyPageLinkEl: document.getElementById("copyPageLink"),
+        docEl: document.getElementById("doc")
       });
     </script>
   </body>
