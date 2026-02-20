@@ -38,7 +38,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// init SMTP mailer (optional)
 	var mailer auth.Mailer
 	smtpHost := cfg.Section("smtp").Key("host").String()
 	smtpPort, _ := cfg.Section("smtp").Key("port").Int()
@@ -62,11 +61,21 @@ func main() {
 			SkipVerify: skipVerify,
 		})
 		logger.Infof("SMTP mailer enabled: %s:%d", smtpHost, smtpPort)
-	} else {
-		logger.Warnf("SMTP not configured; verification codes will be logged only")
 	}
 
-	authService := &auth.Service{DB: db, Mailer: mailer}
+	fcmSAPath := cfg.Section("fcm").Key("service_account").String()
+	fcmProjectID := cfg.Section("fcm").Key("project_id").String()
+	fcmEndpoint := cfg.Section("fcm").Key("endpoint").String()
+	var fcmClient *auth.FCMClient
+	if fcmSAPath != "" && fcmProjectID != "" {
+		if client, err := auth.NewFCMClientFromServiceAccount(fcmSAPath, fcmProjectID, fcmEndpoint); err != nil {
+			logger.Errorf("init FCM client error: %v", err)
+		} else {
+			fcmClient = client
+		}
+	}
+
+	authService := &auth.Service{DB: db, Mailer: mailer, FCM: fcmClient}
 
 	publicIP := cfg.Section("turn").Key("public_ip").String()
 	stunPort, err := cfg.Section("turn").Key("port").Int()
@@ -93,6 +102,8 @@ func main() {
 	http.HandleFunc("/api/auth/register", authService.HandleRegister)
 	http.HandleFunc("/api/auth/delete-account", authService.HandleDeleteAccount)
 	http.HandleFunc("/api/auth/reset-password", authService.HandleResetPassword)
+	http.HandleFunc("/api/push/register", authService.HandleRegisterPushToken)
+	http.HandleFunc("/api/push/alert", authService.HandlePushAlert)
 
 	// register device binding handlers
 	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)

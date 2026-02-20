@@ -10,5 +10,6 @@ require (
 	github.com/rs/zerolog v1.23.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	golang.org/x/crypto v0.28.0
+	golang.org/x/oauth2 v0.21.0
 	gopkg.in/ini.v1 v1.62.0
 )

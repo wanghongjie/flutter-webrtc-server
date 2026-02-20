@@ -16,3 +16,4 @@
 
 .DS_Store
 .idea/
+configs/fcm-service-account.json

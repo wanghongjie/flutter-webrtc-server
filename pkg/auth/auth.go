@@ -1,22 +1,123 @@
 package auth
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
 	"math/big"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
-// Service wraps dependencies required for authentication related handlers.
 type Service struct {
 	DB     *sql.DB
 	Mailer Mailer
+	FCM    *FCMClient
+}
+
+type FCMClient struct {
+	ProjectID   string
+	Endpoint    string
+	TokenSource oauth2.TokenSource
+	Client      *http.Client
+}
+
+func NewFCMClientFromServiceAccount(saPath, projectID, endpoint string) (*FCMClient, error) {
+	if strings.TrimSpace(saPath) == "" || strings.TrimSpace(projectID) == "" {
+		return nil, fmt.Errorf("service account path and projectID are required")
+	}
+
+	data, err := os.ReadFile(saPath)
+	if err != nil {
+		return nil, fmt.Errorf("read service account file error: %w", err)
+	}
+
+	ctx := context.Background()
+	creds, err := google.CredentialsFromJSON(ctx, data, "https://www.googleapis.com/auth/firebase.messaging")
+	if err != nil {
+		return nil, fmt.Errorf("create credentials from json error: %w", err)
+	}
+
+	if endpoint == "" {
+		endpoint = fmt.Sprintf("https://fcm.googleapis.com/v1/projects/%s/messages:send", projectID)
+	}
+
+	return &FCMClient{
+		ProjectID:   projectID,
+		Endpoint:    endpoint,
+		TokenSource: creds.TokenSource,
+		Client:      &http.Client{Timeout: 5 * time.Second},
+	}, nil
+}
+
+func (c *FCMClient) SendAlert(token, title, body string, data map[string]string) error {
+	if c == nil {
+		err := fmt.Errorf("fcm client is nil")
+		logger.Errorf("fcm send alert error: %v", err)
+		return err
+	}
+	if strings.TrimSpace(token) == "" {
+		err := fmt.Errorf("empty fcm token")
+		logger.Errorf("fcm send alert error: %v", err)
+		return err
+	}
+
+	ctx := context.Background()
+	accessToken, err := c.TokenSource.Token()
+	if err != nil {
+		logger.Errorf("fcm get access token error: %v", err)
+		return fmt.Errorf("get fcm access token error: %w", err)
+	}
+
+	payload := map[string]interface{}{
+		"message": map[string]interface{}{
+			"token": token,
+			"notification": map[string]string{
+				"title": title,
+				"body":  body,
+			},
+			"data": data,
+		},
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		logger.Errorf("fcm marshal payload error: %v", err)
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", c.Endpoint, bytes.NewReader(b))
+	if err != nil {
+		logger.Errorf("fcm new request error: %v", err)
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken.AccessToken)
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		logger.Errorf("fcm http request error: %v", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		err := fmt.Errorf("fcm status %d: %s", resp.StatusCode, string(bodyBytes))
+		logger.Errorf("fcm send alert error: %v", err)
+		return err
+	}
+	return nil
 }
 
 type User struct {
@@ -605,6 +706,147 @@ func nullIfEmpty(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+type registerPushTokenRequest struct {
+	Email    string `json:"email"`
+	Platform string `json:"platform"`
+	FCMToken string `json:"fcm_token"`
+}
+
+// HandleRegisterPushToken 保存或更新用户的推送平台和 FCM token。
+func (s *Service) HandleRegisterPushToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req registerPushTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Platform = strings.ToLower(strings.TrimSpace(req.Platform))
+	req.FCMToken = strings.TrimSpace(req.FCMToken)
+
+	if req.Email == "" || req.Platform == "" || req.FCMToken == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, platform and fcm_token are required"})
+		return
+	}
+
+	if req.Platform != "android" && req.Platform != "ios" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "platform must be 'android' or 'ios'"})
+		return
+	}
+
+	if len(req.FCMToken) > 512 {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "fcm_token too long"})
+		return
+	}
+
+	res, err := s.DB.Exec(
+		"UPDATE users SET platform = ?, fcm_token = ? WHERE email = ? AND status = 'active'",
+		req.Platform,
+		req.FCMToken,
+		req.Email,
+	)
+	if err != nil {
+		logger.Errorf("update push token error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "user not found or inactive"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "push token registered",
+	})
+}
+
+type pushAlertRequest struct {
+	Email     string `json:"email"`
+	Platform  string `json:"platform"`
+	Timestamp int64  `json:"timestamp"`
+	CameraID  string `json:"camera_id"`
+}
+
+func (s *Service) HandlePushAlert(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	if s.FCM == nil || s.FCM.TokenSource == nil {
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "push service not configured"})
+		return
+	}
+
+	var req pushAlertRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Platform = strings.ToLower(strings.TrimSpace(req.Platform))
+	req.CameraID = strings.TrimSpace(req.CameraID)
+
+	if req.Email == "" || req.Platform == "" || req.CameraID == "" || req.Timestamp == 0 {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, platform, camera_id and timestamp are required"})
+		return
+	}
+
+	if req.Platform != "android" && req.Platform != "ios" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "platform must be 'android' or 'ios'"})
+		return
+	}
+
+	var fcmToken sql.NullString
+	err := s.DB.QueryRow(
+		"SELECT fcm_token FROM users WHERE email = ? AND status = 'active'",
+		req.Email,
+	).Scan(&fcmToken)
+	if err == sql.ErrNoRows {
+		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "user not found or inactive"})
+		return
+	} else if err != nil {
+		logger.Errorf("query user fcm_token error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	if !fcmToken.Valid || strings.TrimSpace(fcmToken.String) == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "push token not registered"})
+		return
+	}
+
+	data := map[string]string{
+		"camera_id": req.CameraID,
+		"timestamp": strconv.FormatInt(req.Timestamp, 10),
+		"platform":  req.Platform,
+		"email":     req.Email,
+	}
+
+	title := "检测到有人"
+	body := "你的摄像头检测到人形"
+
+	if err := s.FCM.SendAlert(fcmToken.String, title, body, data); err != nil {
+		logger.Errorf("send fcm alert error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "push send error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "push alert sent",
+	})
 }
 
 type deleteAccountRequest struct {
