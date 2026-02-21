@@ -760,6 +760,7 @@ func (s *Service) HandleRegisterPushToken(w http.ResponseWriter, r *http.Request
 
 	affected, _ := res.RowsAffected()
 	if affected == 0 {
+		logger.Errorf("register push token user not found or inactive, email=%s, platform=%s", req.Email, req.Platform)
 		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "user not found or inactive"})
 		return
 	}
