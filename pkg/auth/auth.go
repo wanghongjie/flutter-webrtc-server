@@ -280,6 +280,15 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	req.Password = strings.TrimSpace(req.Password)
 	req.Language = strings.TrimSpace(req.Language)
 
+	if req.Language != "" {
+		normalized, ok := normalizeLanguage(req.Language)
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "language must be 'zh-CN' or 'en-US'"})
+			return
+		}
+		req.Language = normalized
+	}
+
 	if req.Email == "" || req.Password == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and password required"})
 		return
@@ -391,6 +400,15 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	req.Email = strings.TrimSpace(req.Email)
 	req.Password = strings.TrimSpace(req.Password)
 	req.Language = strings.TrimSpace(req.Language)
+
+	if req.Language != "" {
+		normalized, ok := normalizeLanguage(req.Language)
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "language must be 'zh-CN' or 'en-US'"})
+			return
+		}
+		req.Language = normalized
+	}
 
 	if req.Email == "" || req.Password == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and password required"})
@@ -728,6 +746,22 @@ func nullIfEmpty(s string) interface{} {
 	return s
 }
 
+func normalizeLanguage(lang string) (string, bool) {
+	lang = strings.TrimSpace(lang)
+	if lang == "" {
+		return "", true
+	}
+	lower := strings.ToLower(lang)
+	switch lower {
+	case "zh-cn":
+		return "zh-CN", true
+	case "en-us":
+		return "en-US", true
+	default:
+		return "", false
+	}
+}
+
 type registerPushTokenRequest struct {
 	Email    string `json:"email"`
 	Platform string `json:"platform"`
@@ -808,10 +842,12 @@ func (s *Service) HandleUpdateLanguage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Language) > 16 {
-		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "language too long"})
+	normalized, ok := normalizeLanguage(req.Language)
+	if !ok {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "language must be 'zh-CN' or 'en-US'"})
 		return
 	}
+	req.Language = normalized
 
 	if _, err := s.DB.Exec("UPDATE users SET language = ? WHERE email = ? AND status = 'active'", req.Language, req.Email); err != nil {
 		logger.Errorf("update user language error: %v", err)
@@ -863,11 +899,14 @@ func (s *Service) HandlePushAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var fcmToken sql.NullString
+	var (
+		fcmToken sql.NullString
+		langVal  sql.NullString
+	)
 	err := s.DB.QueryRow(
-		"SELECT fcm_token FROM users WHERE email = ? AND status = 'active'",
+		"SELECT fcm_token, language FROM users WHERE email = ? AND status = 'active'",
 		req.Email,
-	).Scan(&fcmToken)
+	).Scan(&fcmToken, &langVal)
 	if err == sql.ErrNoRows {
 		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "user not found or inactive"})
 		return
@@ -889,8 +928,19 @@ func (s *Service) HandlePushAlert(w http.ResponseWriter, r *http.Request) {
 		"email":     req.Email,
 	}
 
+	userLang := "zh-CN"
+	if langVal.Valid {
+		if normalized, ok := normalizeLanguage(langVal.String); ok && normalized != "" {
+			userLang = normalized
+		}
+	}
+
 	title := "检测到有人"
 	body := "你的摄像头检测到人形"
+	if userLang == "en-US" {
+		title = "Person detected"
+		body = "Your camera has detected a person"
+	}
 
 	if err := s.FCM.SendAlert(fcmToken.String, title, body, data); err != nil {
 		logger.Errorf("send fcm alert error: %v", err)
