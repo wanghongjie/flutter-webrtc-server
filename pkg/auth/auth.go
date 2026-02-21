@@ -124,6 +124,7 @@ type User struct {
 	ID       uint64 `json:"id"`
 	Email    string `json:"email"`
 	VipLevel uint8  `json:"vip_level"`
+	Language string `json:"language,omitempty"`
 }
 
 type jsonResponse struct {
@@ -259,6 +260,7 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	Language string `json:"language,omitempty"`
 }
 
 // HandleLogin authenticates a user by email and password.
@@ -273,6 +275,10 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
 		return
 	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Password = strings.TrimSpace(req.Password)
+	req.Language = strings.TrimSpace(req.Language)
 
 	if req.Email == "" || req.Password == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and password required"})
@@ -298,6 +304,12 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password)) != nil {
 		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or password"})
 		return
+	}
+
+	if req.Language != "" {
+		if _, err := s.DB.Exec("UPDATE users SET language = ? WHERE id = ?", req.Language, id); err != nil {
+			logger.Errorf("update user language on login error: %v", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, jsonResponse{
@@ -359,7 +371,8 @@ func (s *Service) HandleVerifyCode(w http.ResponseWriter, r *http.Request) {
 type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Code     string `json:"code,omitempty"` // 验证码现在是可选的
+	Code     string `json:"code,omitempty"`
+	Language string `json:"language,omitempty"`
 }
 
 // HandleRegister registers a new user with email and password (verification code no longer required).
@@ -374,6 +387,10 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
 		return
 	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Password = strings.TrimSpace(req.Password)
+	req.Language = strings.TrimSpace(req.Language)
 
 	if req.Email == "" || req.Password == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and password required"})
@@ -414,7 +431,11 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	)
 	if err == nil && currentStatus == "deleted" {
 		// Reactivate deleted user
-		_, err = s.DB.Exec("UPDATE users SET password_hash = ?, status = 'active' WHERE id = ?", string(hash), existingID)
+		if req.Language != "" {
+			_, err = s.DB.Exec("UPDATE users SET password_hash = ?, status = 'active', language = ? WHERE id = ?", string(hash), req.Language, existingID)
+		} else {
+			_, err = s.DB.Exec("UPDATE users SET password_hash = ?, status = 'active' WHERE id = ?", string(hash), existingID)
+		}
 		if err != nil {
 			logger.Errorf("reactivate user error: %v", err)
 			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
@@ -429,7 +450,7 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Insert new user
-		res, err := s.DB.Exec("INSERT INTO users (email, password_hash, status) VALUES (?, ?, 'active')", req.Email, string(hash))
+		res, err := s.DB.Exec("INSERT INTO users (email, password_hash, status, language) VALUES (?, ?, 'active', ?)", req.Email, string(hash), req.Language)
 		if err != nil {
 			logger.Errorf("insert user error: %v", err)
 			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
@@ -713,6 +734,11 @@ type registerPushTokenRequest struct {
 	FCMToken string `json:"fcm_token"`
 }
 
+type updateLanguageRequest struct {
+	Email    string `json:"email"`
+	Language string `json:"language"`
+}
+
 // HandleRegisterPushToken 保存或更新用户的推送平台和 FCM token。
 func (s *Service) HandleRegisterPushToken(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -759,6 +785,43 @@ func (s *Service) HandleRegisterPushToken(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Message: "push token registered",
+	})
+}
+
+func (s *Service) HandleUpdateLanguage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req updateLanguageRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Language = strings.TrimSpace(req.Language)
+
+	if req.Email == "" || req.Language == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email and language are required"})
+		return
+	}
+
+	if len(req.Language) > 16 {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "language too long"})
+		return
+	}
+
+	if _, err := s.DB.Exec("UPDATE users SET language = ? WHERE email = ? AND status = 'active'", req.Language, req.Email); err != nil {
+		logger.Errorf("update user language error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Message: "language updated",
 	})
 }
 

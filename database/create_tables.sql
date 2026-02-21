@@ -11,6 +11,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   status        ENUM('active', 'deleted') NOT NULL DEFAULT 'active' COMMENT '用户状态',
   vip_level     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  language      VARCHAR(16) DEFAULT NULL COMMENT '语言环境',
   platform      ENUM('android', 'ios') DEFAULT NULL COMMENT '平台类型',
   fcm_token     VARCHAR(512) DEFAULT NULL COMMENT 'FCM 推送 token',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP

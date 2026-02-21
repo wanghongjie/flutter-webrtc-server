@@ -104,6 +104,7 @@ func main() {
 	http.HandleFunc("/api/auth/reset-password", authService.HandleResetPassword)
 	http.HandleFunc("/api/push/register", authService.HandleRegisterPushToken)
 	http.HandleFunc("/api/push/alert", authService.HandlePushAlert)
+	http.HandleFunc("/api/user/update-language", authService.HandleUpdateLanguage)
 
 	// register device binding handlers
 	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
