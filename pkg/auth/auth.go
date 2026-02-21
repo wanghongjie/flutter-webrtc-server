@@ -223,11 +223,10 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 	code := generateCode(6)
 	expiresAt := time.Now().Add(10 * time.Minute)
 
-	_, err = s.DB.Exec(
+	if _, err = s.DB.Exec(
 		"INSERT INTO email_verification_codes (email, code, expires_at) VALUES (?, ?, ?)",
 		email, code, expiresAt,
-	)
-	if err != nil {
+	); err != nil {
 		logger.Errorf("insert verification code error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
 		return
@@ -746,22 +745,14 @@ func (s *Service) HandleRegisterPushToken(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	res, err := s.DB.Exec(
+	if _, err := s.DB.Exec(
 		"UPDATE users SET platform = ?, fcm_token = ? WHERE email = ? AND status = 'active'",
 		req.Platform,
 		req.FCMToken,
 		req.Email,
-	)
-	if err != nil {
+	); err != nil {
 		logger.Errorf("update push token error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
-		return
-	}
-
-	affected, _ := res.RowsAffected()
-	if affected == 0 {
-		logger.Errorf("register push token user not found or inactive, email=%s, platform=%s", req.Email, req.Platform)
-		writeJSON(w, http.StatusNotFound, jsonResponse{Success: false, Message: "user not found or inactive"})
 		return
 	}
 
