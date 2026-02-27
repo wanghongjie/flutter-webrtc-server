@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -78,6 +79,8 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 
 		if resp.StatusCode != http.StatusOK {
 			log.Printf("Google Play API returned status: %d", resp.StatusCode)
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			log.Printf("Google Play API error body: %s", string(bodyBytes))
 			http.Error(w, "Verification failed at provider", http.StatusPaymentRequired)
 			return
 		}
