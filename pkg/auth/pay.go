@@ -146,7 +146,7 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 	// Update user
 	vipLevel := 1
 	// Update last_verify_at to now, and set subscription_state to 1 (Active)
-	_, err = s.DB.Exec("UPDATE users SET vip_level = ?, expire_at = ?, last_verify_at = ?, subscription_state = 1 WHERE email = ?", vipLevel, expireAt, time.Now(), req.Email)
+	_, err := s.DB.Exec("UPDATE users SET vip_level = ?, expire_at = ?, last_verify_at = ?, subscription_state = 1 WHERE email = ?", vipLevel, expireAt, time.Now(), req.Email)
 	if err != nil {
 		log.Printf("Error updating user: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
