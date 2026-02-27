@@ -12,6 +12,8 @@ CREATE TABLE users (
   status        ENUM('active', 'deleted') NOT NULL DEFAULT 'active' COMMENT '用户状态',
   vip_level     TINYINT UNSIGNED NOT NULL DEFAULT 0,
   expire_at     TIMESTAMP DEFAULT NULL COMMENT 'VIP 过期时间',
+  last_verify_at TIMESTAMP DEFAULT NULL COMMENT '最后一次向 Google 校验的时间',
+  subscription_state TINYINT DEFAULT 0 COMMENT '订阅状态: 0=无/过期, 1=生效中, 2=宽限期, 3=暂停',
   language      VARCHAR(16) DEFAULT NULL COMMENT '语言环境',
   platform      ENUM('android', 'ios') DEFAULT NULL COMMENT '平台类型',
   fcm_token     VARCHAR(512) DEFAULT NULL COMMENT 'FCM 推送 token',
@@ -62,3 +64,22 @@ CREATE TABLE feedbacks (
   INDEX idx_device_id (device_id),
   INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='意见反馈表';
+
+-- 创建订阅表
+CREATE TABLE subscriptions (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) NOT NULL,
+  order_id VARCHAR(255) NULL COMMENT 'Google Play 订单ID',
+  product_id VARCHAR(255) NOT NULL COMMENT '订阅产品ID',
+  purchase_token VARCHAR(512) NOT NULL COMMENT '购买凭证Token',
+  platform ENUM('android', 'ios') NOT NULL DEFAULT 'android',
+  purchase_time TIMESTAMP NULL COMMENT '购买时间',
+  expire_time TIMESTAMP NULL COMMENT '过期时间',
+  status TINYINT DEFAULT 1 COMMENT '状态: 0=无/过期, 1=生效中, 2=宽限期, 3=暂停',
+  auto_renewing TINYINT(1) DEFAULT 1 COMMENT '是否自动续费',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (email),
+  INDEX idx_order_id (order_id),
+  UNIQUE KEY uk_purchase_token (purchase_token)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户订阅记录表';
