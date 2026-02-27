@@ -75,7 +75,25 @@ func main() {
 		}
 	}
 
-	authService := &auth.Service{DB: db, Mailer: mailer, FCM: fcmClient}
+	paymentSAPath := cfg.Section("payment").Key("service_account").String()
+	packageName := cfg.Section("payment").Key("package_name").String()
+	var paymentClient *http.Client
+	if paymentSAPath != "" {
+		if client, err := auth.NewGooglePlayClient(paymentSAPath); err != nil {
+			logger.Errorf("init Payment client error: %v", err)
+		} else {
+			paymentClient = client
+			logger.Infof("Payment client enabled for package: %s", packageName)
+		}
+	}
+
+	authService := &auth.Service{
+		DB:            db,
+		Mailer:        mailer,
+		FCM:           fcmClient,
+		PaymentClient: paymentClient,
+		PackageName:   packageName,
+	}
 
 	publicIP := cfg.Section("turn").Key("public_ip").String()
 	stunPort, err := cfg.Section("turn").Key("port").Int()
@@ -114,6 +132,9 @@ func main() {
 
 	// feedback
 	http.HandleFunc("/api/feedback/submit", authService.HandleSubmitFeedback)
+
+	// payment verification
+	http.HandleFunc("/api/payment/verify/google", authService.HandleVerifyGooglePurchase)
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()

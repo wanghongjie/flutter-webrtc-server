@@ -22,9 +22,11 @@ import (
 )
 
 type Service struct {
-	DB     *sql.DB
-	Mailer Mailer
-	FCM    *FCMClient
+	DB            *sql.DB
+	Mailer        Mailer
+	FCM           *FCMClient
+	PaymentClient *http.Client
+	PackageName   string
 }
 
 type FCMClient struct {
@@ -32,6 +34,23 @@ type FCMClient struct {
 	Endpoint    string
 	TokenSource oauth2.TokenSource
 	Client      *http.Client
+}
+
+func NewGooglePlayClient(saPath string) (*http.Client, error) {
+	if strings.TrimSpace(saPath) == "" {
+		return nil, fmt.Errorf("service account path is required")
+	}
+	data, err := os.ReadFile(saPath)
+	if err != nil {
+		return nil, fmt.Errorf("read service account file error: %w", err)
+	}
+	ctx := context.Background()
+	// Scope for Android Publisher API
+	creds, err := google.CredentialsFromJSON(ctx, data, "https://www.googleapis.com/auth/androidpublisher")
+	if err != nil {
+		return nil, fmt.Errorf("create credentials from json error: %w", err)
+	}
+	return oauth2.NewClient(ctx, creds.TokenSource), nil
 }
 
 func NewFCMClientFromServiceAccount(saPath, projectID, endpoint string) (*FCMClient, error) {
