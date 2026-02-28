@@ -62,7 +62,7 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 		// Call Google Play Developer API
 		isSubscription := req.ProductID == "rephone_premium_monthly" || 
 			req.ProductID == "rephone_premium_yearly" || 
-			req.ProductID == "rephone_plus"
+			req.ProductID == "rephone_pro"
 		
 		var apiURL string
 		if isSubscription {
@@ -117,7 +117,7 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 			duration = 30 * 24 * time.Hour
 		} else if req.ProductID == "rephone_premium_yearly" {
 			duration = 365 * 24 * time.Hour
-		} else if req.ProductID == "rephone_plus" {
+		} else if req.ProductID == "rephone_pro" {
 			// Dev mode fallback for new model: try to guess based on token or just default to month
 			// In real dev environment, we might want to pass 'basePlanId' in request for simulation
 			duration = 30 * 24 * time.Hour
@@ -281,7 +281,7 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 		// Call Google Play Developer API
 		isSubscription := productId == "rephone_premium_monthly" || 
 			productId == "rephone_premium_yearly" || 
-			productId == "rephone_plus"
+			productId == "rephone_pro"
 		
 		var apiURL string
 		if isSubscription {
