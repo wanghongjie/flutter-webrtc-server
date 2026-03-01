@@ -1164,20 +1164,20 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, jsonResponse{Success: true, Message: "account deleted"})
 }
 
-type resetPasswordRequest struct {
+type changePasswordRequest struct {
 	Email       string `json:"email"`
 	OldPassword string `json:"old_password"`
 	NewPassword string `json:"new_password"`
 }
 
-// HandleResetPassword verifies old password and updates to new password.
-func (s *Service) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+// HandleChangePassword verifies old password and updates to new password.
+func (s *Service) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
 		return
 	}
 
-	var req resetPasswordRequest
+	var req changePasswordRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
 		return
@@ -1195,7 +1195,7 @@ func (s *Service) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, jsonResponse{Success: false, Message: "invalid email or old password"})
 		return
 	} else if err != nil {
-		logger.Errorf("reset password query error: %v", err)
+		logger.Errorf("change password query error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
 		return
 	}
