@@ -507,6 +507,146 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type sendResetCodeRequest struct {
+	Email string `json:"email"`
+}
+
+// HandleSendPasswordResetCode sends a verification code for password reset.
+func (s *Service) HandleSendPasswordResetCode(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req sendResetCodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email required"})
+		return
+	}
+
+	// Check if user exists
+	var count int
+	err := s.DB.QueryRow("SELECT COUNT(1) FROM users WHERE email = ? AND status = 'active'", email).Scan(&count)
+	if err != nil {
+		logger.Errorf("check email query error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	if count == 0 {
+		// User not found. To prevent enumeration, we can return success or a specific error.
+		// For UX, returning "email not registered" is often preferred unless high security is needed.
+		// Let's return error for now to match typical flow.
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email not registered"})
+		return
+	}
+
+	// Generate code
+	code := generateCode(6)
+	expiresAt := time.Now().Add(10 * time.Minute)
+
+	if _, err = s.DB.Exec(
+		"INSERT INTO email_verification_codes (email, code, expires_at) VALUES (?, ?, ?)",
+		email, code, expiresAt,
+	); err != nil {
+		logger.Errorf("insert verification code error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	// Send email
+	if s.Mailer != nil {
+		if err := s.Mailer.SendVerificationCode(email, code); err != nil {
+			logger.Errorf("send verification code email error: %v", err)
+			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "failed to send email"})
+			return
+		}
+	} else {
+		logger.Infof("Send password reset code %s to email %s", code, email)
+	}
+
+	writeJSON(w, http.StatusOK, jsonResponse{Success: true})
+}
+
+type resetPasswordRequest struct {
+	Email       string `json:"email"`
+	Code        string `json:"code"`
+	NewPassword string `json:"new_password"`
+}
+
+// HandleResetPassword resets the user's password using a verification code.
+func (s *Service) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var req resetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid json"})
+		return
+	}
+
+	req.Email = strings.TrimSpace(req.Email)
+	req.Code = strings.TrimSpace(req.Code)
+	req.NewPassword = strings.TrimSpace(req.NewPassword)
+
+	if req.Email == "" || req.Code == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, code and new_password required"})
+		return
+	}
+
+	// Verify code
+	var (
+		codeID    uint64
+		expiresAt time.Time
+		used      bool
+	)
+	err := s.DB.QueryRow(
+		"SELECT id, expires_at, used FROM email_verification_codes WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1",
+		req.Email, req.Code,
+	).Scan(&codeID, &expiresAt, &used)
+	if err == sql.ErrNoRows {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "invalid code"})
+		return
+	} else if err != nil {
+		logger.Errorf("verify code query error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	if used || time.Now().After(expiresAt) {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "code expired or used"})
+		return
+	}
+
+	// Update password
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Errorf("hash password error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	_, err = s.DB.Exec("UPDATE users SET password_hash = ? WHERE email = ? AND status = 'active'", string(hash), req.Email)
+	if err != nil {
+		logger.Errorf("update password error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	// Mark code as used
+	_, _ = s.DB.Exec("UPDATE email_verification_codes SET used = 1 WHERE id = ?", codeID)
+
+	writeJSON(w, http.StatusOK, jsonResponse{Success: true})
+}
+
 // DeviceBinding 设备绑定结构
 type DeviceBinding struct {
 	ID             uint64    `json:"id"`

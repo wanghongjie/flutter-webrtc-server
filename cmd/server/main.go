@@ -119,6 +119,7 @@ func main() {
 	http.HandleFunc("/api/auth/verify-code", authService.HandleVerifyCode)
 	http.HandleFunc("/api/auth/register", authService.HandleRegister)
 	http.HandleFunc("/api/auth/delete-account", authService.HandleDeleteAccount)
+	http.HandleFunc("/api/auth/send-reset-code", authService.HandleSendPasswordResetCode)
 	http.HandleFunc("/api/auth/reset-password", authService.HandleResetPassword)
 	http.HandleFunc("/api/push/register", authService.HandleRegisterPushToken)
 	http.HandleFunc("/api/push/alert", authService.HandlePushAlert)
