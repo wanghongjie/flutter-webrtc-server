@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
@@ -144,6 +145,7 @@ type User struct {
 	Email    string `json:"email"`
 	VipLevel uint8  `json:"vip_level"`
 	Language string `json:"language,omitempty"`
+	Token    string `json:"token,omitempty"`
 }
 
 type jsonResponse struct {
@@ -177,6 +179,92 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
+type fixedWindowLimiter struct {
+	mu      sync.Mutex
+	windows map[string]fixedWindowCounter
+}
+
+type fixedWindowCounter struct {
+	start time.Time
+	count int
+}
+
+func newFixedWindowLimiter() *fixedWindowLimiter {
+	return &fixedWindowLimiter{
+		windows: make(map[string]fixedWindowCounter),
+	}
+}
+
+func (l *fixedWindowLimiter) allow(key string, window time.Duration, limit int) bool {
+	if limit <= 0 {
+		return true
+	}
+	now := time.Now()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	c, ok := l.windows[key]
+	if !ok || now.Sub(c.start) >= window {
+		l.windows[key] = fixedWindowCounter{start: now, count: 1}
+		return true
+	}
+	if c.count >= limit {
+		return false
+	}
+	c.count++
+	l.windows[key] = c
+	return true
+}
+
+var codeSendLimiter = newFixedWindowLimiter()
+
+func (s *Service) allowSendVerificationCode(ip, email string) (ok bool, status int, message string) {
+	if strings.TrimSpace(ip) == "" {
+		ip = "unknown"
+	}
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return false, http.StatusBadRequest, "email required"
+	}
+
+	if !codeSendLimiter.allow("code_send_ip_min:"+ip, time.Minute, 20) {
+		return false, http.StatusTooManyRequests, "too many requests"
+	}
+	if !codeSendLimiter.allow("code_send_ip_day:"+ip, 24*time.Hour, 500) {
+		return false, http.StatusTooManyRequests, "too many requests"
+	}
+
+	var lastCreatedAt time.Time
+	err := s.DB.QueryRow(
+		"SELECT created_at FROM email_verification_codes WHERE email = ? ORDER BY id DESC LIMIT 1",
+		email,
+	).Scan(&lastCreatedAt)
+	if err == nil {
+		if time.Since(lastCreatedAt) < time.Minute {
+			return false, http.StatusTooManyRequests, "please wait before requesting another code"
+		}
+	} else if err != sql.ErrNoRows {
+		logger.Errorf("query last verification code created_at error: %v", err)
+		return false, http.StatusInternalServerError, "server error"
+	}
+
+	var count24h int
+	err = s.DB.QueryRow(
+		"SELECT COUNT(1) FROM email_verification_codes WHERE email = ? AND created_at >= ?",
+		email,
+		time.Now().Add(-24*time.Hour),
+	).Scan(&count24h)
+	if err != nil {
+		logger.Errorf("count verification codes in 24h error: %v", err)
+		return false, http.StatusInternalServerError, "server error"
+	}
+	if count24h >= 10 {
+		return false, http.StatusTooManyRequests, "too many codes requested for this email"
+	}
+
+	return true, http.StatusOK, ""
+}
+
 // generateCode returns a numeric verification code with the given length.
 func generateCode(length int) string {
 	if length <= 0 {
@@ -195,8 +283,6 @@ func generateCode(length int) string {
 	return string(b)
 }
 
-// validatePassword checks if the password meets strength requirements.
-// It requires at least 8 characters, containing both letters and numbers.
 func validatePassword(password string) error {
 	if len(password) < 8 {
 		return fmt.Errorf("password must be at least 8 characters")
@@ -234,7 +320,7 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email := req.Email
+	email := strings.TrimSpace(req.Email)
 	if email == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email required"})
 		return
@@ -256,6 +342,12 @@ func (s *Service) HandleCheckEmail(w http.ResponseWriter, r *http.Request) {
 				"registered": true,
 			},
 		})
+		return
+	}
+
+	ip := clientIP(r)
+	if ok, status, message := s.allowSendVerificationCode(ip, email); !ok {
+		writeJSON(w, status, jsonResponse{Success: false, Message: message})
 		return
 	}
 
@@ -360,12 +452,20 @@ func (s *Service) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	token, err := GenerateToken(id, req.Email)
+	if err != nil {
+		logger.Errorf("generate token error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Data: User{
 			ID:       id,
 			Email:    req.Email,
 			VipLevel: vipLevel,
+			Token:    token,
 		},
 	})
 }
@@ -522,12 +622,20 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		vipLevel = 0
 	}
 
+	token, err := GenerateToken(uint64(userID), req.Email)
+	if err != nil {
+		logger.Errorf("generate token error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Data: User{
 			ID:       uint64(userID),
 			Email:    req.Email,
 			VipLevel: vipLevel,
+			Token:    token,
 		},
 	})
 }
@@ -555,6 +663,12 @@ func (s *Service) HandleSendPasswordResetCode(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	ip := clientIP(r)
+	if !codeSendLimiter.allow("send_reset_ip_min:"+ip, time.Minute, 20) {
+		writeJSON(w, http.StatusTooManyRequests, jsonResponse{Success: false, Message: "too many requests"})
+		return
+	}
+
 	// Check if user exists
 	var count int
 	err := s.DB.QueryRow("SELECT COUNT(1) FROM users WHERE email = ? AND status = 'active'", email).Scan(&count)
@@ -569,6 +683,11 @@ func (s *Service) HandleSendPasswordResetCode(w http.ResponseWriter, r *http.Req
 		// For UX, returning "email not registered" is often preferred unless high security is needed.
 		// Let's return error for now to match typical flow.
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email not registered"})
+		return
+	}
+
+	if ok, status, message := s.allowSendVerificationCode(ip, email); !ok {
+		writeJSON(w, status, jsonResponse{Success: false, Message: message})
 		return
 	}
 
@@ -589,6 +708,10 @@ func (s *Service) HandleSendPasswordResetCode(w http.ResponseWriter, r *http.Req
 	if s.Mailer != nil {
 		if err := s.Mailer.SendVerificationCode(email, code); err != nil {
 			logger.Errorf("send verification code email error: %v", err)
+			_, _ = s.DB.Exec(
+				"UPDATE email_verification_codes SET expires_at = ? WHERE email = ? AND code = ? ORDER BY id DESC LIMIT 1",
+				time.Now(), email, code,
+			)
 			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "failed to send email"})
 			return
 		}

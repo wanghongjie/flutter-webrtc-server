@@ -118,26 +118,26 @@ func main() {
 	http.HandleFunc("/api/auth/login", authService.HandleLogin)
 	http.HandleFunc("/api/auth/verify-code", authService.HandleVerifyCode)
 	http.HandleFunc("/api/auth/register", authService.HandleRegister)
-	http.HandleFunc("/api/auth/delete-account", authService.HandleDeleteAccount)
+	http.HandleFunc("/api/auth/delete-account", auth.AuthMiddleware(authService.HandleDeleteAccount))
 	http.HandleFunc("/api/auth/send-reset-code", authService.HandleSendPasswordResetCode)
 	http.HandleFunc("/api/auth/reset-password", authService.HandleResetPassword)
-	http.HandleFunc("/api/auth/change-password", authService.HandleChangePassword)
-	http.HandleFunc("/api/push/register", authService.HandleRegisterPushToken)
-	http.HandleFunc("/api/push/alert", authService.HandlePushAlert)
-	http.HandleFunc("/api/user/update-language", authService.HandleUpdateLanguage)
+	http.HandleFunc("/api/auth/change-password", auth.AuthMiddleware(authService.HandleChangePassword))
+	http.HandleFunc("/api/push/register", auth.AuthMiddleware(authService.HandleRegisterPushToken))
+	http.HandleFunc("/api/push/alert", auth.AuthMiddleware(authService.HandlePushAlert))
+	http.HandleFunc("/api/user/update-language", auth.AuthMiddleware(authService.HandleUpdateLanguage))
 
 	// register device binding handlers
-	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
-	http.HandleFunc("/api/device/get-bindings", authService.HandleGetBindingsByMonitor)
-	http.HandleFunc("/api/device/update-camera-info", authService.HandleUpdateCameraInfoByDeviceID)
-	http.HandleFunc("/api/device/delete-camera", authService.HandleDeleteCameraByDeviceID)
+	http.HandleFunc("/api/device/add-binding", auth.AuthMiddleware(authService.HandleAddBinding))
+	http.HandleFunc("/api/device/get-bindings", auth.AuthMiddleware(authService.HandleGetBindingsByMonitor))
+	http.HandleFunc("/api/device/update-camera-info", auth.AuthMiddleware(authService.HandleUpdateCameraInfoByDeviceID))
+	http.HandleFunc("/api/device/delete-camera", auth.AuthMiddleware(authService.HandleDeleteCameraByDeviceID))
 
 	// feedback
-	http.HandleFunc("/api/feedback/submit", authService.HandleSubmitFeedback)
+	http.HandleFunc("/api/feedback/submit", auth.AuthMiddleware(authService.HandleSubmitFeedback))
 
 	// payment verification
-	http.HandleFunc("/api/payment/verify/google", authService.HandleVerifyGooglePurchase)
-	http.HandleFunc("/api/payment/refresh", authService.HandleRefreshSubscription)
+	http.HandleFunc("/api/payment/verify/google", auth.AuthMiddleware(authService.HandleVerifyGooglePurchase))
+	http.HandleFunc("/api/payment/refresh", auth.AuthMiddleware(authService.HandleRefreshSubscription))
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()
