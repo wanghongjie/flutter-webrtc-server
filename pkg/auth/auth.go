@@ -692,15 +692,15 @@ func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
 	// 检查是否已存在绑定关系
 	var existingID uint64
 	err := s.DB.QueryRow(
-		"SELECT id FROM device_bindings WHERE monitor_email = ? AND camera_email = ? AND camera_device_id = ?",
-		req.MonitorEmail, req.CameraEmail, req.CameraDeviceID,
+		"SELECT id FROM device_bindings WHERE camera_device_id = ?",
+		req.CameraDeviceID,
 	).Scan(&existingID)
 
 	if err == nil {
-		// 已存在，更新状态为active
+		// 已存在，更新绑定信息
 		_, err = s.DB.Exec(
-			"UPDATE device_bindings SET status = 'active', camera_name = ?, camera_location = ? WHERE id = ?",
-			req.CameraName, req.CameraLocation, existingID,
+			"UPDATE device_bindings SET monitor_email = ?, camera_email = ?, camera_name = ?, camera_location = ?, status = 'active' WHERE id = ?",
+			req.MonitorEmail, req.CameraEmail, req.CameraName, req.CameraLocation, existingID,
 		)
 		if err != nil {
 			logger.Errorf("update binding error: %v", err)
