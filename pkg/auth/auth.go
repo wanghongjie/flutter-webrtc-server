@@ -842,9 +842,32 @@ func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 获取监控端用户信息
+	var user User
+	err := s.DB.QueryRow("SELECT id, email, vip_level FROM users WHERE email = ? AND status = 'active'", req.MonitorEmail).
+		Scan(&user.ID, &user.Email, &user.VipLevel)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "monitor user not found"})
+			return
+		}
+		logger.Errorf("fetch user error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+
+	// 生成 Token
+	token, err := GenerateToken(user.ID, user.Email)
+	if err != nil {
+		logger.Errorf("generate token error: %v", err)
+		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "server error"})
+		return
+	}
+	user.Token = token
+
 	// 检查是否已存在绑定关系
 	var existingID uint64
-	err := s.DB.QueryRow(
+	err = s.DB.QueryRow(
 		"SELECT id FROM device_bindings WHERE camera_device_id = ?",
 		req.CameraDeviceID,
 	).Scan(&existingID)
@@ -864,7 +887,10 @@ func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, jsonResponse{
 			Success: true,
 			Message: "binding updated",
-			Data:    map[string]interface{}{"id": existingID},
+			Data: map[string]interface{}{
+				"id":   existingID,
+				"user": user,
+			},
 		})
 		return
 	} else if err != sql.ErrNoRows {
@@ -889,7 +915,10 @@ func (s *Service) HandleAddBinding(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, jsonResponse{
 		Success: true,
 		Message: "binding created",
-		Data:    map[string]interface{}{"id": bindingID},
+		Data: map[string]interface{}{
+			"id":   bindingID,
+			"user": user,
+		},
 	})
 }
 

@@ -127,7 +127,7 @@ func main() {
 	http.HandleFunc("/api/user/update-language", auth.AuthMiddleware(authService.HandleUpdateLanguage))
 
 	// register device binding handlers
-	http.HandleFunc("/api/device/add-binding", auth.AuthMiddleware(authService.HandleAddBinding))
+	http.HandleFunc("/api/device/add-binding", authService.HandleAddBinding)
 	http.HandleFunc("/api/device/get-bindings", auth.AuthMiddleware(authService.HandleGetBindingsByMonitor))
 	http.HandleFunc("/api/device/update-camera-info", auth.AuthMiddleware(authService.HandleUpdateCameraInfoByDeviceID))
 	http.HandleFunc("/api/device/delete-camera", auth.AuthMiddleware(authService.HandleDeleteCameraByDeviceID))
