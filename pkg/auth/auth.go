@@ -195,6 +195,26 @@ func generateCode(length int) string {
 	return string(b)
 }
 
+// validatePassword checks if the password meets strength requirements.
+// It requires at least 8 characters, containing both letters and numbers.
+func validatePassword(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+	var hasLetter, hasDigit bool
+	for _, c := range password {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			hasLetter = true
+		} else if c >= '0' && c <= '9' {
+			hasDigit = true
+		}
+	}
+	if !hasLetter || !hasDigit {
+		return fmt.Errorf("password must contain both letters and numbers")
+	}
+	return nil
+}
+
 type checkEmailRequest struct {
 	Email string `json:"email"`
 }
@@ -434,6 +454,11 @@ func (s *Service) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validatePassword(req.Password); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: err.Error()})
+		return
+	}
+
 	// check if user already exists
 	var (
 		currentStatus string
@@ -599,6 +624,11 @@ func (s *Service) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" || req.Code == "" || req.NewPassword == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, code and new_password required"})
+		return
+	}
+
+	if err := validatePassword(req.NewPassword); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: err.Error()})
 		return
 	}
 
@@ -1185,6 +1215,11 @@ func (s *Service) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	if req.Email == "" || req.OldPassword == "" || req.NewPassword == "" {
 		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: "email, old_password and new_password are required"})
+		return
+	}
+
+	if err := validatePassword(req.NewPassword); err != nil {
+		writeJSON(w, http.StatusBadRequest, jsonResponse{Success: false, Message: err.Error()})
 		return
 	}
 
