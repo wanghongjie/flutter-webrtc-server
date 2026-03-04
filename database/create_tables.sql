@@ -71,7 +71,8 @@ CREATE TABLE subscriptions (
   email VARCHAR(255) NOT NULL,
   order_id VARCHAR(255) NULL COMMENT 'Google Play 订单ID',
   product_id VARCHAR(255) NOT NULL COMMENT '订阅产品ID',
-  purchase_token VARCHAR(512) NOT NULL COMMENT '购买凭证Token',
+  purchase_token TEXT NOT NULL COMMENT '购买凭证Token (iOS receipt_data 或 Google purchaseToken)',
+  purchase_token_hash BINARY(32) GENERATED ALWAYS AS (UNHEX(SHA2(purchase_token, 256))) STORED,
   platform ENUM('android', 'ios') NOT NULL DEFAULT 'android',
   purchase_time TIMESTAMP NULL COMMENT '购买时间',
   expire_time TIMESTAMP NULL COMMENT '过期时间',
@@ -81,5 +82,5 @@ CREATE TABLE subscriptions (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_email (email),
   INDEX idx_order_id (order_id),
-  UNIQUE KEY uk_purchase_token (purchase_token)
+  UNIQUE KEY uk_purchase_token_hash (purchase_token_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户订阅记录表';

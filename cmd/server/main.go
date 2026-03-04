@@ -137,6 +137,7 @@ func main() {
 
 	// payment verification
 	http.HandleFunc("/api/payment/verify/google", auth.AuthMiddleware(authService.HandleVerifyGooglePurchase))
+	http.HandleFunc("/api/payment/verify/apple", auth.AuthMiddleware(authService.HandleVerifyApplePurchase))
 	http.HandleFunc("/api/payment/refresh", auth.AuthMiddleware(authService.HandleRefreshSubscription))
 
 	sslCert := cfg.Section("general").Key("cert").String()
