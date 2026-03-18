@@ -19,8 +19,10 @@ import (
 type PaymentRequest struct {
 	OrderID       string `json:"order_id"`
 	ProductID     string `json:"product_id"`
+	BasePlanID    string `json:"base_plan_id"` // Android Base Plans (monthly/yearly) under rephone_pro
 	PurchaseToken string `json:"purchase_token"`
 	ReceiptData   string `json:"receipt_data"` // iOS receipt data
+	TransactionID string `json:"transaction_id"`
 	Email         string `json:"email"`
 	Platform      string `json:"platform"` // "android" or "ios"
 	PackageName   string `json:"package_name"`
@@ -66,11 +68,36 @@ type AppleRenewalInfo struct {
 
 // PaymentResponse 返回给客户端的验证结果
 type PaymentResponse struct {
-	Success   bool   `json:"success"`
-	Status    string `json:"status"`
-	VipLevel  int    `json:"vip_level"`
-	ExpireAt  string `json:"expire_at,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Success          bool   `json:"success"`
+	Status           string `json:"status"`
+	VipLevel         int    `json:"vip_level"`
+	ExpireAt         string `json:"expire_at,omitempty"`
+	Message          string `json:"message,omitempty"`
+	ActiveProductID  string `json:"active_product_id,omitempty"`
+	ActivePlan       string `json:"active_plan,omitempty"` // monthly|yearly|unknown
+	Platform         string `json:"platform,omitempty"`    // ios|android
+	SubscriptionState int   `json:"subscription_state,omitempty"`
+}
+
+func activePlanFromProduct(productID string) string {
+	switch productID {
+	case "rephone_premium_monthly":
+		return "monthly"
+	case "rephone_premium_yearly":
+		return "yearly"
+	default:
+		return "unknown"
+	}
+}
+
+func activePlanFromGoogle(productID, basePlanID string) string {
+	if productID == "rephone_pro" {
+		if basePlanID == "monthly" || basePlanID == "yearly" {
+			return basePlanID
+		}
+		return "unknown"
+	}
+	return activePlanFromProduct(productID)
 }
 
 // HandleVerifyGooglePurchase 验证 Google Play 订单
@@ -197,13 +224,14 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 
 	// Save subscription record
 	_, err = s.DB.Exec(`
-		INSERT INTO subscriptions (email, order_id, product_id, purchase_token, platform, purchase_time, expire_time, status)
-		VALUES (?, ?, ?, ?, ?, NOW(), ?, 1)
+		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
+		VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, 1)
 		ON DUPLICATE KEY UPDATE 
 			expire_time = VALUES(expire_time),
+			base_plan_id = VALUES(base_plan_id),
 			updated_at = NOW(),
 			status = 1
-	`, req.Email, req.OrderID, req.ProductID, req.PurchaseToken, req.Platform, expireAt)
+	`, req.Email, req.OrderID, req.ProductID, req.BasePlanID, req.PurchaseToken, req.Platform, expireAt)
 
 	if err != nil {
 		// Log error but don't fail the request, as user status is already updated
@@ -211,10 +239,14 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 	}
 
 	resp := PaymentResponse{
-		Success:  true,
-		Status:   "success",
-		VipLevel: vipLevel,
-		ExpireAt: expireAt.Format(time.RFC3339),
+		Success:           true,
+		Status:            "success",
+		VipLevel:          vipLevel,
+		ExpireAt:          expireAt.Format(time.RFC3339),
+		ActiveProductID:   req.ProductID,
+		ActivePlan:        activePlanFromGoogle(req.ProductID, req.BasePlanID),
+		Platform:          "android",
+		SubscriptionState: 1,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -356,8 +388,8 @@ func (s *Service) HandleVerifyApplePurchase(w http.ResponseWriter, r *http.Reque
 	// platform = "ios"
 	// Note: We are storing purchaseToken (OriginalTransactionID) in purchase_token column
 	_, err = s.DB.Exec(`
-		INSERT INTO subscriptions (email, order_id, product_id, purchase_token, platform, purchase_time, expire_time, status)
-		VALUES (?, ?, ?, ?, ?, NOW(), ?, 1)
+		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
+		VALUES (?, ?, ?, NULL, ?, ?, NOW(), ?, 1)
 		ON DUPLICATE KEY UPDATE 
 			expire_time = VALUES(expire_time),
 			updated_at = NOW(),
@@ -369,10 +401,14 @@ func (s *Service) HandleVerifyApplePurchase(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp := PaymentResponse{
-		Success:  true,
-		Status:   "success",
-		VipLevel: vipLevel,
-		ExpireAt: expireAt.Format(time.RFC3339),
+		Success:           true,
+		Status:            "success",
+		VipLevel:          vipLevel,
+		ExpireAt:          expireAt.Format(time.RFC3339),
+		ActiveProductID:   latestReceipt.ProductID,
+		ActivePlan:        activePlanFromProduct(latestReceipt.ProductID),
+		Platform:          "ios",
+		SubscriptionState: 1,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -416,15 +452,15 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 	log.Printf("Refreshing subscription for %s", req.Email)
 
 	// 1. 查最近一次有效的订阅记录 (PurchaseToken)
-	var purchaseToken, productId, orderId string
+	var purchaseToken, productId, basePlanId, orderId string
 	var platform string
 	err := s.DB.QueryRow(`
-		SELECT purchase_token, product_id, order_id, platform 
+		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform 
 		FROM subscriptions 
 		WHERE email = ? 
 		ORDER BY created_at DESC 
 		LIMIT 1
-	`, req.Email).Scan(&purchaseToken, &productId, &orderId, &platform)
+	`, req.Email).Scan(&purchaseToken, &productId, &basePlanId, &orderId, &platform)
 
 	if err == sql.ErrNoRows {
 		// 没有订阅记录 -> 不是 VIP
@@ -526,11 +562,15 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 			if lastVerifyAt.Valid && now.Sub(lastVerifyAt.Time) < 6*time.Hour {
 				// Cache valid
 				resp := PaymentResponse{
-					Success:  true,
-					Status:   "success",
-					VipLevel: currentVipLevel,
-					ExpireAt: currentExpireAt.Time.Format(time.RFC3339),
-					Message:  "Cached status (Refresh)",
+					Success:           true,
+					Status:            "success",
+					VipLevel:          currentVipLevel,
+					ExpireAt:          currentExpireAt.Time.Format(time.RFC3339),
+					Message:           "Cached status (Refresh)",
+					ActiveProductID:   productId,
+					ActivePlan:        activePlanFromGoogle(productId, basePlanId),
+					Platform:          platform,
+					SubscriptionState: 1,
 				}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(resp)
@@ -643,11 +683,15 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 	}
 
 	resp := PaymentResponse{
-		Success:  true,
-		Status:   "success",
-		VipLevel: vipLevel,
-		ExpireAt: expireAt.Format(time.RFC3339),
-		Message:  "Refreshed status",
+		Success:           true,
+		Status:            "success",
+		VipLevel:          vipLevel,
+		ExpireAt:          expireAt.Format(time.RFC3339),
+		Message:           "Refreshed status",
+		ActiveProductID:   productId,
+		ActivePlan:        activePlanFromGoogle(productId, basePlanId),
+		Platform:          platform,
+		SubscriptionState: 1,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

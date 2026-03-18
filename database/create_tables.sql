@@ -71,6 +71,7 @@ CREATE TABLE subscriptions (
   email VARCHAR(255) NOT NULL,
   order_id VARCHAR(255) NULL COMMENT 'Google Play 订单ID',
   product_id VARCHAR(255) NOT NULL COMMENT '订阅产品ID',
+  base_plan_id VARCHAR(64) NULL COMMENT 'Android Base Plan ID (monthly/yearly) when product_id=rephone_pro',
   purchase_token TEXT NOT NULL COMMENT '购买凭证Token (iOS receipt_data 或 Google purchaseToken)',
   purchase_token_hash BINARY(32) GENERATED ALWAYS AS (UNHEX(SHA2(purchase_token, 256))) STORED,
   platform ENUM('android', 'ios') NOT NULL DEFAULT 'android',
