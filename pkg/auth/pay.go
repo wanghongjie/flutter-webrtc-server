@@ -451,14 +451,18 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 
 	log.Printf("Refreshing subscription for %s", req.Email)
 
-	// 1. 查最近一次有效的订阅记录 (PurchaseToken)
+	// 1. 优先选择“过期时间最长”的订阅记录（解决同一账号跨平台登录时的同步问题）
+	// 先取 expire_time 最大的记录；如果 expire_time 为空，则回退取最新 created_at。
 	var purchaseToken, productId, basePlanId, orderId string
 	var platform string
 	err := s.DB.QueryRow(`
-		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform 
-		FROM subscriptions 
-		WHERE email = ? 
-		ORDER BY created_at DESC 
+		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform
+		FROM subscriptions
+		WHERE email = ?
+		ORDER BY
+			CASE WHEN expire_time IS NULL THEN 1 ELSE 0 END ASC,
+			expire_time DESC,
+			created_at DESC
 		LIMIT 1
 	`, req.Email).Scan(&purchaseToken, &productId, &basePlanId, &orderId, &platform)
 
