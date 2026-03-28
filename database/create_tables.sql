@@ -69,7 +69,7 @@ CREATE TABLE feedbacks (
 CREATE TABLE subscriptions (
   id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
   email VARCHAR(255) NOT NULL,
-  order_id VARCHAR(255) NULL COMMENT 'Google Play 订单ID',
+  order_id VARCHAR(255) NOT NULL COMMENT '订单唯一键：Google orderId / Apple transaction_id',
   product_id VARCHAR(255) NOT NULL COMMENT '订阅产品ID',
   base_plan_id VARCHAR(64) NULL COMMENT 'Android Base Plan ID (monthly/yearly) when product_id=rephone_pro',
   purchase_token TEXT NOT NULL COMMENT '购买凭证Token (iOS receipt_data 或 Google purchaseToken)',
@@ -83,5 +83,5 @@ CREATE TABLE subscriptions (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_email (email),
   INDEX idx_order_id (order_id),
-  UNIQUE KEY uk_purchase_token_hash (purchase_token_hash)
+  UNIQUE KEY uk_order_id (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户订阅记录表';

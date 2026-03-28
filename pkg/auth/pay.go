@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -108,7 +109,7 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if req.Email == "" || req.ProductID == "" || req.PurchaseToken == "" {
+	if req.Email == "" || req.ProductID == "" || req.PurchaseToken == "" || strings.TrimSpace(req.OrderID) == "" {
 		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
@@ -222,13 +223,17 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Save subscription record
+	// Save subscription record（同一 order_id 只保留一行，收据/token 更新时覆盖字段）
 	_, err = s.DB.Exec(`
 		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
 		VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, 1)
 		ON DUPLICATE KEY UPDATE 
-			expire_time = VALUES(expire_time),
+			email = VALUES(email),
+			product_id = VALUES(product_id),
 			base_plan_id = VALUES(base_plan_id),
+			purchase_token = VALUES(purchase_token),
+			platform = VALUES(platform),
+			expire_time = VALUES(expire_time),
 			updated_at = NOW(),
 			status = 1
 	`, req.Email, req.OrderID, req.ProductID, req.BasePlanID, req.PurchaseToken, req.Platform, expireAt)
@@ -373,7 +378,11 @@ func (s *Service) HandleVerifyApplePurchase(w http.ResponseWriter, r *http.Reque
 	// Note: This assumes purchase_token column is large enough (TEXT/BLOB)
 	purchaseToken := req.ReceiptData
 	
-	orderId := latestReceipt.TransactionID
+	orderId := strings.TrimSpace(latestReceipt.TransactionID)
+	if orderId == "" {
+		http.Error(w, "Invalid receipt: empty transaction id", http.StatusPaymentRequired)
+		return
+	}
 
 	// Update user VIP status
 	vipLevel := 1
@@ -384,13 +393,14 @@ func (s *Service) HandleVerifyApplePurchase(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Save subscription record
-	// platform = "ios"
-	// Note: We are storing purchaseToken (OriginalTransactionID) in purchase_token column
+	// Save subscription record（同一 order_id = Apple transaction_id 只保留一行，receipt 变化时更新 purchase_token）
 	_, err = s.DB.Exec(`
 		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
 		VALUES (?, ?, ?, NULL, ?, ?, NOW(), ?, 1)
 		ON DUPLICATE KEY UPDATE 
+			email = VALUES(email),
+			product_id = VALUES(product_id),
+			purchase_token = VALUES(purchase_token),
 			expire_time = VALUES(expire_time),
 			updated_at = NOW(),
 			status = 1
