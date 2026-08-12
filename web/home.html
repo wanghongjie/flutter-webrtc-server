@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="RePhone Security - 让闲置手机变身为专业监控摄像头，实时查看、智能告警、云端回看，守护您的家庭与财产安全。">
+  <title>RePhone Security 官方网站 - 闲置手机变身专业监控</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      line-height: 1.6;
+    }
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+    ul {
+      list-style: none;
+    }
+
+    /* ========== 导航栏 ========== */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .navbar__inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .navbar__logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f9fafb;
+    }
+    .navbar__logo-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+    .navbar__menu {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .navbar__menu a {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+      transition: color 0.2s;
+    }
+    .navbar__menu a:hover {
+      color: #7dd3fc;
+    }
+    .navbar__toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: #e5e7eb;
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+    @media (max-width: 720px) {
+      .navbar__menu {
+        display: none;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        background: rgba(15, 23, 42, 0.98);
+        flex-direction: column;
+        padding: 16px 20px;
+        gap: 16px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+      }
+      .navbar__menu.is-open {
+        display: flex;
+      }
+      .navbar__toggle {
+        display: block;
+      }
+    }
+
+    /* ========== 通用容器 ========== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .section {
+      padding: 80px 0;
+    }
+    .section__title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #f9fafb;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    .section__subtitle {
+      font-size: 1rem;
+      color: #94a3b8;
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    /* ========== Hero 区域 ========== */
+    .hero {
+      padding: 96px 0 80px;
+      background:
+        radial-gradient(ellipse at 20% 0%, rgba(56, 189, 248, 0.15) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 55%);
+    }
+    .hero__inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .hero__badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #7dd3fc;
+      font-size: 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+    }
+    .hero__title {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800;
+      line-height: 1.2;
+      color: #f9fafb;
+      margin-bottom: 1.25rem;
+    }
+    .hero__title-highlight {
+      background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero__subtitle {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: #cbd5e1;
+      max-width: 680px;
+      margin-bottom: 2.5rem;
+    }
+    .hero__features {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 2.5rem;
+    }
+    .hero__feature {
+      padding: 8px 18px;
+      border-radius: 12px;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      font-size: 0.9rem;
+      color: #e2e8f0;
+    }
+    .hero__cta {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      border: none;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    .btn--primary {
+      background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+    }
+    .btn--secondary {
+      background: rgba(30, 41, 59, 0.7);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    /* ========== 产品功能 ========== */
+    .features {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .features__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 20px;
+      padding: 28px 24px;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.4);
+    }
+    .feature-card__icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .feature-card__icon--blue {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+    }
+    .feature-card__icon--purple {
+      background: rgba(139, 92, 246, 0.12);
+      color: #a78bfa;
+    }
+    .feature-card__icon--green {
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+    }
+    .feature-card__icon--orange {
+      background: rgba(251, 146, 60, 0.12);
+      color: #fb923c;
+    }
+    .feature-card__title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #f9fafb;
+      margin-bottom: 0.6rem;
+    }
+    .feature-card__desc {
+      font-size: 0.92rem;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    /* ========== 工作原理 ========== */
+    .howitworks__steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+      counter-reset: step;
+    }
+    .step {
+      position: relative;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      border-radius: 18px;
+      padding: 32px 24px 24px;
+    }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #38bdf8 0%, #6366f1 100%);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step__title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f9fafb;
+      margin-bottom: 0.6rem;
+    }
+    .step__desc {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    /* ========== 文档类板块（用户协议 / 隐私政策 / 技术支持） ========== */
+    .doc-section {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .doc-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 18px;
+      padding: 32px 28px;
+      margin-bottom: 2rem;
+    }
+    .doc-card:last-child {
+      margin-bottom: 0;
+    }
+    .doc-card__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .doc-card__title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #f9fafb;
+    }
+    .doc-card__meta {
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+    .doc-card__link {
+      font-size: 0.85rem;
+      color: #7dd3fc;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .doc-card__link:hover {
+      background: rgba(56, 189, 248, 0.15);
+    }
+    .doc-content h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin: 1.3rem 0 0.5rem;
+    }
+    .doc-content h3:first-child {
+      margin-top: 0;
+    }
+    .doc-content p {
+      font-size: 0.92rem;
+      color: #94a3b8;
+      line-height: 1.8;
+      margin-bottom: 0.6rem;
+    }
+    .doc-content ul {
+      padding-left: 1.2rem;
+      margin-bottom: 0.6rem;
+    }
+    .doc-content li {
+      font-size: 0.92rem;
+      color: #94a3b8;
+      line-height: 1.8;
+      list-style: disc;
+      margin-bottom: 0.2rem;
+    }
+    .doc-content b {
+      color: #cbd5e1;
+    }
+
+    /* ========== 联系我们 ========== */
+    .contact__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .contact-card {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 16px;
+      padding: 24px 20px;
+    }
+    .contact-card__label {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+    .contact-card__value {
+      font-size: 1rem;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .contact-card__value a {
+      color: #7dd3fc;
+    }
+
+    /* ========== FAQ ========== */
+    .faq {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .faq__list {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+    .faq-item {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 14px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .faq-item__q {
+      padding: 18px 22px;
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .faq-item__q::after {
+      content: "+";
+      font-size: 1.2rem;
+      color: #7dd3fc;
+      transition: transform 0.2s;
+    }
+    .faq-item.is-open .faq-item__q::after {
+      transform: rotate(45deg);
+    }
+    .faq-item__a {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      padding: 0 22px;
+    }
+    .faq-item.is-open .faq-item__a {
+      max-height: 500px;
+      padding: 0 22px 20px;
+    }
+    .faq-item__a p {
+      font-size: 0.92rem;
+      color: #94a3b8;
+      line-height: 1.8;
+    }
+    .faq-item__a ul {
+      padding-left: 1.2rem;
+    }
+    .faq-item__a li {
+      font-size: 0.92rem;
+      color: #94a3b8;
+      line-height: 1.8;
+      list-style: disc;
+    }
+
+    /* ========== 页脚 ========== */
+    .footer {
+      background: #0b1220;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+      padding: 56px 0 32px;
+    }
+    .footer__grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 40px;
+    }
+    @media (max-width: 820px) {
+      .footer__grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 480px) {
+      .footer__grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .footer__brand-desc {
+      font-size: 0.9rem;
+      color: #64748b;
+      line-height: 1.7;
+      margin-top: 0.8rem;
+      max-width: 320px;
+    }
+    .footer__col-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      margin-bottom: 1rem;
+      letter-spacing: 0.02em;
+    }
+    .footer__col-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .footer__col-links a {
+      font-size: 0.88rem;
+      color: #64748b;
+      transition: color 0.2s;
+    }
+    .footer__col-links a:hover {
+      color: #7dd3fc;
+    }
+    .footer__bottom {
+      padding-top: 28px;
+      border-top: 1px solid rgba(148, 163, 184, 0.08);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .footer__copyright {
+      font-size: 0.85rem;
+      color: #475569;
+    }
+    .footer__info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: #475569;
+    }
+    .footer__info a {
+      color: #7dd3fc;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 导航栏 -->
+  <nav class="navbar">
+    <div class="navbar__inner">
+      <a href="#home" class="navbar__logo">
+        <div class="navbar__logo-icon">📱</div>
+        <span>RePhone Security</span>
+      </a>
+      <div class="navbar__menu" id="navMenu">
+        <a href="#home">首页</a>
+        <a href="#features">产品功能</a>
+        <a href="#howitworks">工作原理</a>
+        <a href="#terms">用户协议</a>
+        <a href="#privacy">隐私政策</a>
+        <a href="#faq">常见问题</a>
+        <a href="#contact">联系我们</a>
+      </div>
+      <button class="navbar__toggle" id="navToggle" aria-label="菜单">☰</button>
+    </div>
+  </nav>
+
+  <!-- Hero 首页 -->
+  <section class="hero" id="home">
+    <div class="container">
+      <div class="hero__inner">
+        <div class="hero__badge">🚀 闲置手机新用法 · 环保又实用</div>
+        <h1 class="hero__title">
+          闲置手机变身 <span class="hero__title-highlight">专业监控摄像头</span>
+        </h1>
+        <p class="hero__subtitle">
+          RePhone Security 让您的旧手机焕发新生。只需简单几步，即可搭建一套属于您的高清监控系统，
+          支持实时查看、智能告警、双向语音、云端回看，24 小时守护您的家庭、店铺与宠物。
+        </p>
+        <div class="hero__features">
+          <div class="hero__feature">🔒 端到端加密传输</div>
+          <div class="hero__feature">📹 高清实时画面</div>
+          <div class="hero__feature">🔔 智能异动告警</div>
+          <div class="hero__feature">☁️ 云端录像回看</div>
+          <div class="hero__feature">🎤 双向语音通话</div>
+        </div>
+        <div class="hero__cta">
+          <a href="#features" class="btn btn--primary">了解产品功能</a>
+          <a href="#howitworks" class="btn btn--secondary">查看使用教程</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 产品功能 -->
+  <section class="section features" id="features">
+    <div class="container">
+      <h2 class="section__title">核心产品功能</h2>
+      <p class="section__subtitle">专业级监控体验，轻松上手，随时随地守护安全</p>
+      <div class="features__grid">
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--blue">♻️</div>
+          <h3 class="feature-card__title">闲置手机复用</h3>
+          <p class="feature-card__desc">
+            无需额外购买硬件设备，将家中闲置的 iPhone 或 Android 手机安装 RePhone Security，
+            即可作为专业摄像头使用。支持后台长时间运行，低功耗模式更省电。
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--purple">👁️</div>
+          <h3 class="feature-card__title">高清实时查看</h3>
+          <p class="feature-card__desc">
+            基于 WebRTC 点对点技术，提供毫秒级低延迟的高清实时视频流。
+            支持多设备同时在线查看，出门在外也能随时掌握家中情况。
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--green">🔔</div>
+          <h3 class="feature-card__title">智能异动告警</h3>
+          <p class="feature-card__desc">
+            内置移动侦测与声音识别算法，当监控画面出现异常移动物体或异常声音时，
+            会立即向您的主设备推送通知消息，第一时间知晓异常情况。
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--orange">☁️</div>
+          <h3 class="feature-card__title">云端录像回看</h3>
+          <p class="feature-card__desc">
+            开通会员服务即可享受云端录像存储功能，支持 7 天 / 30 天循环录像，
+            随时随地回放历史录像，不错过任何重要画面，录像存储加密安全。
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--blue">🎤</div>
+          <h3 class="feature-card__title">双向语音通话</h3>
+          <p class="feature-card__desc">
+            内置双向语音对讲功能，您可以通过监控端与摄像头端进行实时语音通话。
+            适用于安抚家中宠物、与家人远程打招呼、或警告陌生闯入者等场景。
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon feature-card__icon--purple">🔐</div>
+          <h3 class="feature-card__title">隐私安全保障</h3>
+          <p class="feature-card__desc">
+            所有音视频数据采用传输加密技术，STUN/TURN 中继服务保障 NAT 穿透与连接稳定。
+            我们严格遵守隐私法规，绝不私自收集或泄露您的个人信息。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工作原理 -->
+  <section class="section howitworks" id="howitworks">
+    <div class="container">
+      <h2 class="section__title">三步开启监控之旅</h2>
+      <p class="section__subtitle">简单配置，零门槛上手，无需专业知识</p>
+      <div class="howitworks__steps">
+        <div class="step">
+          <h3 class="step__title">下载与安装</h3>
+          <p class="step__desc">
+            在您闲置的手机（摄像头端）和日常使用的主手机（监控端）上分别安装 RePhone Security 应用。
+            应用支持 iOS 与 Android 双平台，适配主流机型。
+          </p>
+        </div>
+        <div class="step">
+          <h3 class="step__title">登录与绑定</h3>
+          <p class="step__desc">
+            使用同一邮箱账号在两台设备上登录。首次登录后，通过二维码扫描或手动输入的方式，
+            将摄像头端设备绑定到您的账号下，完成设备配对。
+          </p>
+        </div>
+        <div class="step">
+          <h3 class="step__title">部署与监控</h3>
+          <p class="step__desc">
+            将摄像头端手机放置在需要监控的位置，连接稳定 Wi-Fi 网络并授予摄像头、麦克风权限。
+            在主手机上即可随时查看实时画面、接收告警通知，并开通云端回看功能。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 用户协议 -->
+  <section class="section doc-section" id="terms">
+    <div class="container">
+      <h2 class="section__title">用户服务协议</h2>
+      <p class="section__subtitle">请您在使用 RePhone Security 前仔细阅读以下服务条款</p>
+      <div class="doc-card">
+        <div class="doc-card__header">
+          <div>
+            <h3 class="doc-card__title">RePhone Security 服务条款</h3>
+            <div class="doc-card__meta">生效日期：2026-01-17 · 版本：V1.0</div>
+          </div>
+          <a href="./terms.html" class="doc-card__link" target="_blank">查看完整协议 →</a>
+        </div>
+        <div class="doc-content">
+          <h3>1. 服务说明</h3>
+          <p>
+            RePhone Security 是一款将闲置手机变身为监控摄像头的软件服务。用户可以通过本服务实现音视频实时传输、
+            设备绑定与管理、异动告警通知、云端录像存储等功能。本服务支持多平台使用，具体功能以应用实际提供为准。
+          </p>
+          <h3>2. 账号注册与使用</h3>
+          <p>
+            用户需通过邮箱注册账号并登录后方可使用核心功能。用户应妥善保管账号信息，因用户个人原因导致账号被盗用的，
+            相关责任由用户自行承担。用户承诺不将账号转借、出租或出售给第三方使用。
+          </p>
+          <h3>3. 用户行为规范</h3>
+          <ul>
+            <li>用户承诺使用本服务时遵守所在国家和地区的法律法规，不得侵犯他人隐私权、肖像权等合法权益。</li>
+            <li>禁止将本服务用于任何违法、违规或不道德的用途，包括但不限于非法监控、偷拍、传播违法内容等。</li>
+            <li>禁止对本服务进行反向工程、破解、攻击服务器或干扰本服务的正常运行。</li>
+          </ul>
+          <h3>4. 订阅与付费</h3>
+          <p>
+            本服务的基础功能可免费使用，云端录像存储等高级功能需通过订阅会员解锁。
+            所有付费和订阅均通过应用商店平台（如 Apple App Store、Google Play）进行管理和扣费，
+            用户可在对应平台的订阅管理中查看或取消订阅。
+          </p>
+          <h3>5. 免责声明</h3>
+          <p>
+            本服务按"现状"提供，我们不对服务的绝对可用性、零中断或零错误作出保证。
+            因网络故障、设备故障、不可抗力或第三方服务故障导致的监控失效、数据丢失等情况，
+            在法律允许的最大范围内，我们不承担相应责任。
+          </p>
+          <h3>6. 协议变更</h3>
+          <p>
+            我们可能根据业务发展或法律法规要求适时更新本服务条款。重大变更会通过应用内通知等显著方式告知用户，
+            用户在变更后继续使用本服务即视为同意更新后的条款。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 隐私政策 -->
+  <section class="section" id="privacy">
+    <div class="container">
+      <h2 class="section__title">隐私政策</h2>
+      <p class="section__subtitle">我们非常重视您的个人信息与隐私保护</p>
+      <div class="doc-card">
+        <div class="doc-card__header">
+          <div>
+            <h3 class="doc-card__title">RePhone Security 隐私协议</h3>
+            <div class="doc-card__meta">生效日期：2026-01-17 · 版本：V1.0</div>
+          </div>
+          <a href="./privacy.html" class="doc-card__link" target="_blank">查看完整政策 →</a>
+        </div>
+        <div class="doc-content">
+          <h3>1. 我们收集哪些信息</h3>
+          <p><b>账号与登录信息：</b>邮箱地址用于登录与账号识别，验证码信息用于完成登录认证。</p>
+          <p><b>设备与运行信息：</b>设备型号、系统版本、应用版本、网络类型、IP 地址以及必要的崩溃日志、
+            错误码等性能数据，用于保障服务稳定与故障排查。</p>
+          <p><b>设备绑定信息：</b>摄像头设备标识、相机名称、位置备注及在线状态等，用于实现多设备绑定与管理。</p>
+          <p><b>WebRTC 连接信息：</b>信令信息（会话标识、SDP、ICE 候选等）用于建立点对点连接；
+            STUN（如 stun.l.google.com）和 TURN 中继服务用于 NAT 穿透与保障连接可达。</p>
+          <h3>2. 关于音视频内容</h3>
+          <p>
+            <b>我们不会主动保存您的音视频内容到服务器。</b>在默认情况下，音视频流通过点对点或 TURN 中继进行传输，
+            不做持久化存储。当您选择开启云端录像存储功能时，录像文件会加密存储在云端服务器，
+            仅您本人可通过登录账号查看或删除。
+          </p>
+          <h3>3. 我们如何使用信息</h3>
+          <ul>
+            <li>提供与维护核心功能：登录、绑定、音视频连接、设备管理、告警推送等。</li>
+            <li>保障账号与服务安全：反作弊、防滥用、风险控制与访问授权验证。</li>
+            <li>进行故障排查、性能分析与产品体验优化。</li>
+          </ul>
+          <h3>4. 信息共享与保护</h3>
+          <p>
+            我们仅在必要情形下与第三方共享信息（如广告 SDK、STUN/TURN 服务提供方、依法合规要求），
+            并采取合理的安全措施（传输加密、访问控制、最小权限等）保护您的个人信息。
+            除非获得您明确同意或法律法规另有规定，我们不会转让或公开披露您的个人信息。
+          </p>
+          <h3>5. 您的权利</h3>
+          <ul>
+            <li>访问、更正您的账号信息（如邮箱地址）。</li>
+            <li>退出登录或清除应用数据以清理本地存储信息。</li>
+            <li>在系统设置中撤回相机、麦克风、相册等权限授权（可能影响部分功能使用）。</li>
+            <li>就隐私相关问题通过联系邮箱向我们咨询或提出请求。</li>
+          </ul>
+          <h3>6. 未成年人保护</h3>
+          <p>
+            本服务不面向未满 14 周岁的未成年人提供。若您为未成年人，请在监护人同意与指导下使用本服务。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 常见问题 FAQ -->
+  <section class="section faq" id="faq">
+    <div class="container">
+      <h2 class="section__title">常见问题</h2>
+      <p class="section__subtitle">您可能关心的问题，都在这里</p>
+      <div class="faq__list">
+        <div class="faq-item is-open">
+          <div class="faq-item__q">RePhone Security 是如何工作的？</div>
+          <div class="faq-item__a">
+            <p>
+              您可以把一部闲置手机作为摄像头设备，在上面登录同一个账号；
+              然后在主用手机上也登录该账号，即可看到摄像头手机的实时画面。
+              摄像头手机会通过 WebRTC 加密连接把视频进行传输，您的查看设备可以实时观看、接收告警，
+              并在开通云端存储后回看历史录像。
+            </p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__q">无法连接到摄像头手机怎么办？</div>
+          <div class="faq-item__a">
+            <ul>
+              <li>请确认两部手机都已连接网络（摄像头手机建议使用稳定 Wi-Fi）。</li>
+              <li>确保在两台设备上使用的是同一个账号登录。</li>
+              <li>检查摄像头手机是否授予了应用摄像头、麦克风等必要权限。</li>
+              <li>尝试在两台设备上分别关闭并重新打开 App。</li>
+              <li>如果仍无法连接，建议切换网络环境或重启路由器后重试。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__q">视频画面会被其他人看到吗？</div>
+          <div class="faq-item__a">
+            <p>
+              不会。我们采用传输加密技术保障音视频数据安全，只有登录同一账号的设备才能查看对应摄像头画面。
+              默认情况下我们不会在服务器保存音视频内容，云端录像功能开通后也仅您本人可通过账号查看和删除。
+              请妥善保管您的账号密码，不要将账号告知他人。
+            </p>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__q">订阅和内购相关问题</div>
+          <div class="faq-item__a">
+            <ul>
+              <li>所有购买和订阅均由应用商店平台（Apple/Google）通过您的账号进行管理和扣费。</li>
+              <li>您可以在设备的「设置 &gt; Apple ID &gt; 订阅」或 Google Play 的订阅管理中查看或取消订阅。</li>
+              <li>如果购买后没有正确解锁会员，请在 App 中使用「恢复购买」或「刷新会员状态」功能，
+                若仍未生效，请带上大致购买时间联系我们的客服邮箱。</li>
+            </ul>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-item__q">摄像头手机需要一直亮屏吗？</div>
+          <div class="faq-item__a">
+            <p>
+              不需要。RePhone Security 支持后台运行与熄屏录像，摄像头端在完成配置并进入监控模式后，
+              可自动关闭屏幕以节省电量。建议将摄像头手机连接电源长期使用，并确保 Wi-Fi 信号稳定。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 联系我们 -->
+  <section class="section" id="contact">
+    <div class="container">
+      <h2 class="section__title">联系我们</h2>
+      <p class="section__subtitle">如您在使用过程中有任何问题或建议，欢迎随时与我们取得联系</p>
+      <div class="contact__grid">
+        <div class="contact-card">
+          <div class="contact-card__label">📧 邮箱地址</div>
+          <div class="contact-card__value">
+            <a href="mailto:dahongwudi123@gmail.com">dahongwudi123@gmail.com</a>
+          </div>
+        </div>
+        <div class="contact-card">
+          <div class="contact-card__label">⏰ 工作时间</div>
+          <div class="contact-card__value">周一至周日 9:00 - 21:00（UTC+8）</div>
+        </div>
+        <div class="contact-card">
+          <div class="contact-card__label">💬 反馈建议</div>
+          <div class="contact-card__value">欢迎通过邮件提交功能建议或 Bug 反馈</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 页脚 -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <div class="navbar__logo">
+            <div class="navbar__logo-icon">📱</div>
+            <span>RePhone Security</span>
+          </div>
+          <p class="footer__brand-desc">
+            让闲置手机变身专业监控摄像头。基于 WebRTC 技术的新一代智能监控解决方案，
+            为家庭、店铺、宠物提供安全可靠的远程守护服务。
+          </p>
+        </div>
+        <div>
+          <h4 class="footer__col-title">产品</h4>
+          <div class="footer__col-links">
+            <a href="#features">功能介绍</a>
+            <a href="#howitworks">使用教程</a>
+            <a href="#faq">常见问题</a>
+            <a href="#contact">联系我们</a>
+          </div>
+        </div>
+        <div>
+          <h4 class="footer__col-title">法律</h4>
+          <div class="footer__col-links">
+            <a href="./terms.html" target="_blank">用户服务协议</a>
+            <a href="./privacy.html" target="_blank">隐私政策</a>
+            <a href="./support.html" target="_blank">技术支持</a>
+          </div>
+        </div>
+        <div>
+          <h4 class="footer__col-title">运营与支持</h4>
+          <div class="footer__col-links">
+            <a href="mailto:dahongwudi123@gmail.com">客服邮箱</a>
+            <a href="#faq">问题反馈</a>
+            <a href="#features">订阅会员</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <div class="footer__copyright">
+          © 2026 北京汉立宏昌智能科技有限公司 版权所有 All Rights Reserved.
+        </div>
+        <div class="footer__info">
+          <span>运营主体：北京汉立宏昌智能科技有限公司</span>
+          <span>邮箱：<a href="mailto:dahongwudi123@gmail.com">dahongwudi123@gmail.com</a></span>
+          <span>服务器部署地区：海外（无国内 ICP 备案）</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // 移动端导航菜单切换
+    const navToggle = document.getElementById('navToggle');
+    const navMenu = document.getElementById('navMenu');
+    navToggle.addEventListener('click', () => {
+      navMenu.classList.toggle('is-open');
+    });
+    // 点击菜单项后关闭移动端菜单
+    navMenu.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu.classList.remove('is-open');
+      });
+    });
+
+    // FAQ 手风琴交互
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const q = item.querySelector('.faq-item__q');
+      q.addEventListener('click', () => {
+        const isOpen = item.classList.contains('is-open');
+        // 先关闭所有
+        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('is-open'));
+        // 再展开当前点击的（如果之前是关闭状态）
+        if (!isOpen) {
+          item.classList.add('is-open');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
