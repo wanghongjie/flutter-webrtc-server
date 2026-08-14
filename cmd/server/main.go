@@ -87,12 +87,40 @@ func main() {
 		}
 	}
 
+	// init WeChat Pay (国内版本)
+	wechatEnable, _ := cfg.Section("wechat_pay").Key("enable").Bool()
+	wechatAppID := cfg.Section("wechat_pay").Key("app_id").String()
+	wechatMchID := cfg.Section("wechat_pay").Key("mch_id").String()
+	wechatAPIv3Key := cfg.Section("wechat_pay").Key("api_v3_key").String()
+	wechatCertSerial := cfg.Section("wechat_pay").Key("mch_cert_serial").String()
+	wechatKeyPath := cfg.Section("wechat_pay").Key("mch_key_path").String()
+	wechatNotifyURL := cfg.Section("wechat_pay").Key("notify_url").String()
+	var wechatPayClient *auth.WechatPayClient
+	if wechatEnable || wechatAppID != "" || wechatMchID != "" {
+		wxClient, err := auth.NewWechatPayClient(auth.WechatConfig{
+			AppID:             wechatAppID,
+			MchID:             wechatMchID,
+			MchCertSerialNo:   wechatCertSerial,
+			APIv3Key:          wechatAPIv3Key,
+			MchPrivateKeyPath: wechatKeyPath,
+			NotifyURL:         wechatNotifyURL,
+			Enable:            wechatEnable,
+		})
+		if err != nil {
+			logger.Errorf("init WeChat Pay client error: %v", err)
+		} else {
+			wechatPayClient = wxClient
+		}
+	}
+
 	authService := &auth.Service{
-		DB:            db,
-		Mailer:        mailer,
-		FCM:           fcmClient,
-		PaymentClient: paymentClient,
-		PackageName:   packageName,
+		DB:                db,
+		Mailer:            mailer,
+		FCM:               fcmClient,
+		PaymentClient:     paymentClient,
+		PackageName:       packageName,
+		WechatPay:         wechatPayClient,
+		WechatCallbackURL: wechatNotifyURL,
 	}
 
 	publicIP := cfg.Section("turn").Key("public_ip").String()
@@ -139,6 +167,12 @@ func main() {
 	http.HandleFunc("/api/payment/verify/google", auth.AuthMiddleware(authService.HandleVerifyGooglePurchase))
 	http.HandleFunc("/api/payment/verify/apple", auth.AuthMiddleware(authService.HandleVerifyApplePurchase))
 	http.HandleFunc("/api/payment/refresh", auth.AuthMiddleware(authService.HandleRefreshSubscription))
+
+	// WeChat Pay (国内) —— 注意 notify 接口不挂 AuthMiddleware，由微信签名验证兜底
+	http.HandleFunc("/api/payment/wechat/create-order", auth.AuthMiddleware(authService.HandleCreateWechatOrder))
+	http.HandleFunc("/api/payment/wechat/notify", authService.HandleWechatNotify)
+	http.HandleFunc("/api/payment/wechat/query", auth.AuthMiddleware(authService.HandleQueryWechatOrder))
+	http.HandleFunc("/api/payment/wechat/verify", auth.AuthMiddleware(authService.HandleVerifyWechatOrder))
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()

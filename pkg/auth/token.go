@@ -11,6 +11,16 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// contextKey 是 context 键的私有类型，用于避免不同包之间的键冲突
+type contextKey string
+
+const (
+	// UserIDKey 是 context 中存储用户 ID 的键
+	UserIDKey contextKey = "user_id"
+	// EmailKey 是 context 中存储用户邮箱的键
+	EmailKey contextKey = "email"
+)
+
 func getJWTSecret() ([]byte, error) {
 	secret := strings.TrimSpace(os.Getenv("AUTH_JWT_SECRET"))
 	if secret == "" {
@@ -100,9 +110,31 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Add claims to context
-		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
-		ctx = context.WithValue(r.Context(), "email", claims.Email)
+		// 将解析后的用户信息写入 context，链式调用保留所有值
+		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+		ctx = context.WithValue(ctx, EmailKey, claims.Email)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+// EmailFromContext 从 context 中取出 AuthMiddleware 注入的 email。
+//
+// 若未注入则返回 ("", false)，调用方按需决定是否强制校验。
+func EmailFromContext(ctx context.Context) (string, bool) {
+	v, ok := ctx.Value(EmailKey).(string)
+	if !ok || v == "" {
+		return "", false
+	}
+	return v, true
+}
+
+// UserIDFromContext 从 context 中取出 AuthMiddleware 注入的 user_id。
+//
+// 若未注入则返回 (0, false)。
+func UserIDFromContext(ctx context.Context) (uint64, bool) {
+	v, ok := ctx.Value(UserIDKey).(uint64)
+	if !ok || v == 0 {
+		return 0, false
+	}
+	return v, true
 }

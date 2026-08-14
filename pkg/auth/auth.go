@@ -23,11 +23,13 @@ import (
 )
 
 type Service struct {
-	DB            *sql.DB
-	Mailer        Mailer
-	FCM           *FCMClient
-	PaymentClient *http.Client
-	PackageName   string
+	DB                *sql.DB
+	Mailer            Mailer
+	FCM               *FCMClient
+	PaymentClient     *http.Client
+	PackageName       string
+	WechatPay         *WechatPayClient
+	WechatCallbackURL string
 }
 
 type FCMClient struct {

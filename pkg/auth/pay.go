@@ -37,11 +37,11 @@ type AppleVerifyRequest struct {
 
 // AppleVerifyResponse Apple 验证响应
 type AppleVerifyResponse struct {
-	Status             int                 `json:"status"`
-	Environment        string              `json:"environment"`
-	Receipt            AppleReceipt        `json:"receipt"`
-	LatestReceiptInfo  []AppleReceiptInfo  `json:"latest_receipt_info"`
-	PendingRenewalInfo []AppleRenewalInfo  `json:"pending_renewal_info"`
+	Status             int                `json:"status"`
+	Environment        string             `json:"environment"`
+	Receipt            AppleReceipt       `json:"receipt"`
+	LatestReceiptInfo  []AppleReceiptInfo `json:"latest_receipt_info"`
+	PendingRenewalInfo []AppleRenewalInfo `json:"pending_renewal_info"`
 }
 
 type AppleReceipt struct {
@@ -61,23 +61,23 @@ type AppleReceiptInfo struct {
 }
 
 type AppleRenewalInfo struct {
-	ProductID              string `json:"product_id"`
-	AutoRenewStatus        string `json:"auto_renew_status"`
-	OriginalTransactionID  string `json:"original_transaction_id"`
-	ExpirationIntent       string `json:"expiration_intent"` // "1" = voluntarily canceled, etc.
+	ProductID             string `json:"product_id"`
+	AutoRenewStatus       string `json:"auto_renew_status"`
+	OriginalTransactionID string `json:"original_transaction_id"`
+	ExpirationIntent      string `json:"expiration_intent"` // "1" = voluntarily canceled, etc.
 }
 
 // PaymentResponse 返回给客户端的验证结果
 type PaymentResponse struct {
-	Success          bool   `json:"success"`
-	Status           string `json:"status"`
-	VipLevel         int    `json:"vip_level"`
-	ExpireAt         string `json:"expire_at,omitempty"`
-	Message          string `json:"message,omitempty"`
-	ActiveProductID  string `json:"active_product_id,omitempty"`
-	ActivePlan       string `json:"active_plan,omitempty"` // monthly|yearly|unknown
-	Platform         string `json:"platform,omitempty"`    // ios|android
-	SubscriptionState int   `json:"subscription_state,omitempty"`
+	Success           bool   `json:"success"`
+	Status            string `json:"status"`
+	VipLevel          int    `json:"vip_level"`
+	ExpireAt          string `json:"expire_at,omitempty"`
+	Message           string `json:"message,omitempty"`
+	ActiveProductID   string `json:"active_product_id,omitempty"`
+	ActivePlan        string `json:"active_plan,omitempty"` // monthly|yearly|unknown
+	Platform          string `json:"platform,omitempty"`    // ios|android
+	SubscriptionState int    `json:"subscription_state,omitempty"`
 }
 
 func activePlanFromProduct(productID string) string {
@@ -130,10 +130,10 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 
 	if s.PaymentClient != nil {
 		// Call Google Play Developer API
-		isSubscription := req.ProductID == "rephone_premium_monthly" || 
-			req.ProductID == "rephone_premium_yearly" || 
+		isSubscription := req.ProductID == "rephone_premium_monthly" ||
+			req.ProductID == "rephone_premium_yearly" ||
 			req.ProductID == "rephone_pro"
-		
+
 		var apiURL string
 		if isSubscription {
 			apiURL = fmt.Sprintf("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/purchases/subscriptions/%s/tokens/%s", packageName, req.ProductID, req.PurchaseToken)
@@ -181,7 +181,7 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 		// Dev mode: no client configured, simulate success
 		log.Println("No PaymentClient configured, simulating success")
 		isValid = true
-		
+
 		var duration time.Duration
 		if req.ProductID == "rephone_premium_monthly" {
 			duration = 30 * 24 * time.Hour
@@ -194,13 +194,13 @@ func (s *Service) HandleVerifyGooglePurchase(w http.ResponseWriter, r *http.Requ
 		} else {
 			duration = 30 * 24 * time.Hour
 		}
-		
+
 		var currentExpireAt sql.NullTime
 		err := s.DB.QueryRow("SELECT expire_at FROM users WHERE email = ?", req.Email).Scan(&currentExpireAt)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("Error querying user: %v", err)
 		}
-		
+
 		if currentExpireAt.Valid && currentExpireAt.Time.After(time.Now()) {
 			expireAt = currentExpireAt.Time.Add(duration)
 		} else {
@@ -377,7 +377,7 @@ func (s *Service) HandleVerifyApplePurchase(w http.ResponseWriter, r *http.Reque
 	// We use ReceiptData as purchase_token to allow server-side refresh
 	// Note: This assumes purchase_token column is large enough (TEXT/BLOB)
 	purchaseToken := req.ReceiptData
-	
+
 	orderId := strings.TrimSpace(latestReceipt.TransactionID)
 	if orderId == "" {
 		http.Error(w, "Invalid receipt: empty transaction id", http.StatusPaymentRequired)
@@ -465,8 +465,9 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 	// 先取 expire_time 最大的记录；如果 expire_time 为空，则回退取最新 created_at。
 	var purchaseToken, productId, basePlanId, orderId string
 	var platform string
+	var subExpireAt sql.NullTime
 	err := s.DB.QueryRow(`
-		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform
+		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform, expire_time
 		FROM subscriptions
 		WHERE email = ?
 		ORDER BY
@@ -474,7 +475,7 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 			expire_time DESC,
 			created_at DESC
 		LIMIT 1
-	`, req.Email).Scan(&purchaseToken, &productId, &basePlanId, &orderId, &platform)
+	`, req.Email).Scan(&purchaseToken, &productId, &basePlanId, &orderId, &platform, &subExpireAt)
 
 	if err == sql.ErrNoRows {
 		// 没有订阅记录 -> 不是 VIP
@@ -562,6 +563,53 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 			log.Printf("Apple verify failed (refresh) status: %d", appleResp.Status)
 		}
 
+	} else if platform == "wechat" {
+		// 微信支付刷新订阅：
+		// 说明：当前 Phase1 只实现了"单次购买 + 手动续费"，未接入"微信支付分自动续费/委托代扣"。
+		// 因此没有外部 API 可供"查询订阅状态"，直接基于 subscriptions 表的 expire_time 判断即可：
+		//   1. 先做缓存命中判断（与 Android 分支一致，避免频繁刷新）
+		//   2. 缓存 miss：直接用 DB 中 expire_time 判断（相当于以服务端为唯一真源）
+		//
+		// 若后续接入"微信委托代扣/自动续费"，可在此处新增"查询委托代扣协议状态"
+		// 的 WeChatPay API 调用，更新 subExpireAt 再判断。
+		var currentVipLevel int
+		var currentExpireAt sql.NullTime
+		var lastVerifyAt sql.NullTime
+		err = s.DB.QueryRow("SELECT vip_level, expire_at, last_verify_at FROM users WHERE email = ?", req.Email).Scan(&currentVipLevel, &currentExpireAt, &lastVerifyAt)
+
+		now := time.Now()
+		if currentVipLevel > 0 && currentExpireAt.Valid && currentExpireAt.Time.After(now) {
+			if lastVerifyAt.Valid && now.Sub(lastVerifyAt.Time) < 6*time.Hour {
+				// 缓存命中，直接返回
+				resp := PaymentResponse{
+					Success:           true,
+					Status:            "success",
+					VipLevel:          currentVipLevel,
+					ExpireAt:          currentExpireAt.Time.Format(time.RFC3339),
+					Message:           "Cached status (WeChat Refresh)",
+					ActiveProductID:   productId,
+					ActivePlan:        activePlanFromProduct(productId),
+					Platform:          platform,
+					SubscriptionState: 1,
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(resp)
+				return
+			}
+		}
+
+		// 缓存 miss：直接以 subscriptions.expire_time 为准
+		if subExpireAt.Valid && subExpireAt.Time.After(now) {
+			isValid = true
+			expireAt = subExpireAt.Time
+		} else {
+			isValid = false
+			if subExpireAt.Valid {
+				expireAt = subExpireAt.Time
+			}
+		}
+		log.Printf("[WeChat Refresh] %s: isValid=%v expireAt=%s (from DB subscriptions)", req.Email, isValid, expireAt.Format(time.RFC3339))
+
 	} else {
 		// Android/Google 验证逻辑 (原有逻辑)
 		// Check cache first (Logic from HandleVerifyGooglePurchase)
@@ -569,7 +617,7 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 		var currentExpireAt sql.NullTime
 		var lastVerifyAt sql.NullTime
 		err = s.DB.QueryRow("SELECT vip_level, expire_at, last_verify_at FROM users WHERE email = ?", req.Email).Scan(&currentVipLevel, &currentExpireAt, &lastVerifyAt)
-		
+
 		now := time.Now()
 		// Cache hit?
 		if currentVipLevel > 0 && currentExpireAt.Valid && currentExpireAt.Time.After(now) {
@@ -594,7 +642,7 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 
 		// Cache miss, need to verify with Google
 		// We have the token from DB.
-		
+
 		packageName := s.PackageName
 		if packageName == "" {
 			packageName = "com.rephone.security"
@@ -602,10 +650,10 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 
 		if s.PaymentClient != nil {
 			// Call Google Play Developer API
-			isSubscription := productId == "rephone_premium_monthly" || 
-				productId == "rephone_premium_yearly" || 
+			isSubscription := productId == "rephone_premium_monthly" ||
+				productId == "rephone_premium_yearly" ||
 				productId == "rephone_pro"
-			
+
 			var apiURL string
 			if isSubscription {
 				apiURL = fmt.Sprintf("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/%s/purchases/subscriptions/%s/tokens/%s", packageName, productId, purchaseToken)
@@ -691,7 +739,7 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 		SET expire_time = ?, updated_at = NOW(), status = 1
 		WHERE purchase_token = ?
 	`, expireAt, purchaseToken)
-	
+
 	if err != nil {
 		log.Printf("Error updating subscription record: %v", err)
 	}
