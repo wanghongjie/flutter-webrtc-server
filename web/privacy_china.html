@@ -23,9 +23,9 @@
       <section class="doc-head">
         <div class="doc-head__title">RePhone Security 隐私政策</div>
         <div class="doc-head__meta">
-          <span>生效日期：<b>2026-08-15</b></span>
+          <span>生效日期：<b>2026-09-19</b></span>
           <span class="dot">·</span>
-          <span>版本：<b>V2.0（国内版）</b></span>
+          <span>版本：<b>V2.1（国内版）</b></span>
         </div>
         <div class="callout">
           <div class="callout__title">引言与特别提示</div>
@@ -104,10 +104,100 @@
         </p>
 
         <h3>1.5 广告与第三方 SDK（国内版）</h3>
-        <p>国内版本应用可能接入<b>字节跳动穿山甲（Pangle）</b>或其他合规的第三方广告 SDK 以展示广告。
-          相关 SDK 可能会收集设备标识（如 OAID、Android ID、IDFA）、网络信息、应用交互信息、粗略地理位置信息等，
-          用于广告投放、频控、归因与反作弊。<b>我们会要求第三方 SDK 提供方在处理您的信息时遵守相应的法律法规</b>，
-          并对其进行合理监督。您可以通过应用内"隐私设置"或系统"重置广告标识符"来管理个性化推荐。</p>
+        <p>
+          国内版本应用为实现<b>微信登录/分享/支付、抖音内容分享、广告展示</b>等功能，接入了下列第三方 SDK。
+          我们已在<b>全国 SDK 管理服务平台</b>登记信息的基础上，在本政策中逐项明示各 SDK 的
+          <b>名称、开发者（运营主体）、收集个人信息范围、使用目的与 SDK 隐私政策链接</b>。
+          <b>我们会要求第三方 SDK 提供方在处理您的信息时遵守相应的法律法规</b>，并对其进行合理监督。
+          您可以通过应用内"隐私设置"或系统"重置广告标识符"来管理个性化推荐。
+        </p>
+
+        <div class="sdk-table" style="overflow-x: auto; -webkit-overflow-scrolling: touch">
+          <table
+            style="
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 13px;
+              line-height: 1.6;
+              text-align: left;
+            "
+          >
+            <thead>
+              <tr>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; white-space: nowrap">SDK 名称</th>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; white-space: nowrap">包名</th>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; white-space: nowrap">开发者（运营主体）</th>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">收集个人信息范围</th>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">使用目的</th>
+                <th style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">SDK 隐私政策链接</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">微信OpenSDK Android</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">com.tencent.mm.opensdk</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">深圳市腾讯计算机系统有限公司</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  设备标识信息（OAID、Android ID、IMEI、MAC 地址）、设备型号与操作系统版本、网络状态与接入方式、
+                  应用安装列表、微信账号授权信息（昵称、头像、OpenID 及您授权的其他信息）
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  用于支持微信账号登录、将内容分享至微信/朋友圈、调起微信支付等功能，并完成授权回调与结果返回
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; word-break: break-all">
+                  <a
+                    href="https://support.weixin.qq.com/cgi-bin/mmsupportacctnodeweb-bin/pages/RYiYJkLOrQwu0nb8"
+                    target="_blank"
+                    rel="noopener"
+                    >https://support.weixin.qq.com/cgi-bin/mmsupportacctnodeweb-bin/pages/RYiYJkLOrQwu0nb8</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">抖音SDK（安卓版）</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">com.bytedance.android.dy.sdk</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">北京微播视界科技有限公司</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  设备标识信息（OAID、Android ID、IMEI、MAC 地址）、设备型号与操作系统版本、网络状态与运营商信息、
+                  应用信息（应用名称、版本号）、您主动分享的图片/视频等内容、剪贴板信息
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  用于支持抖音账号授权登录、将图片/视频等内容分享至抖音、拉起抖音客户端并完成分享结果回调
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; word-break: break-all">
+                  <a
+                    href="https://developer.open-douyin.com/docs/resource/zh-CN/dop/operation-standard/service-protocol/douyinsdk_pingtaiyinsizhengce"
+                    target="_blank"
+                    rel="noopener"
+                    >https://developer.open-douyin.com/docs/resource/zh-CN/dop/operation-standard/service-protocol/douyinsdk_pingtaiyinsizhengce</a
+                  >
+                </td>
+              </tr>
+              <tr>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">穿山甲广告SDK</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">com.bytedance.sdk.openadsdk</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">北京巨量引擎网络技术有限公司</td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  设备标识信息（OAID、Android ID、IMEI、IMSI、MAC 地址）、设备型号、操作系统版本、屏幕分辨率、
+                  网络信息（IP 地址、运营商、Wi-Fi 状态）、粗略地理位置信息、应用安装列表与应用交互行为、广告展示与点击交互数据
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px">
+                  用于向您展示第三方广告、进行广告投放与频次控制、广告效果归因统计、反作弊与广告安全风控
+                </td>
+                <td style="border: 1px solid rgba(127, 127, 127, 0.35); padding: 8px; word-break: break-all">
+                  <a href="https://www.csjplatform.com/privacy" target="_blank" rel="noopener">https://www.csjplatform.com/privacy</a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>
+          上述第三方 SDK 仅在实现对应功能所必需的范围内收集、使用个人信息，其收集行为受其各自独立的官方隐私政策约束。
+          如本表所列 SDK 的名称、开发者、收集范围、使用目的或隐私政策链接发生变更，我们会依据
+          <b>全国 SDK 管理服务平台</b>（<a href="https://sdk.caict.ac.cn/official/#/home" target="_blank" rel="noopener">https://sdk.caict.ac.cn/official/#/home</a>）
+          的登记情况同步更新本政策，并在必要时重新征得您的同意。
+        </p>
         <p>
           <b>我们承诺：</b>即便接入第三方广告 SDK，<b>也不会将您的邮箱、账号身份、音视频画面等核心敏感信息</b>提供给广告 SDK，
           用于广告投放的仅为去标识化后的设备标识。
@@ -350,7 +440,8 @@
         <p>
           本《隐私政策》为<b>独立成文的规则性文件</b>，未嵌套、摘抄、合并或"点击跳转"至任何第三方隐私政策；
           如本政策与《服务条款》《儿童隐私政策》之间存在冲突或不一致，<b>就对应适用人群分别以本政策与《儿童隐私政策》为准</b>；
-          就第三方服务/SDK 的具体处理规则，以其各自独立的官方隐私政策为准（我们会在§1.5 中列出官方链接入口）。
+          就第三方服务/SDK 的具体处理规则，以其各自独立的官方隐私政策为准（我们已在§1.5 的第三方 SDK 清单中逐项列出
+          SDK 名称、开发者、收集信息范围、使用目的及官方隐私政策链接入口）。
           我们承诺：<b>本政策声明的运营主体、处理规则与我们实际提供服务的主体、数据处理行为完全一致，不会出现"协议主体"与"实际运营者"不一致的情形</b>。
         </p>
 
