@@ -74,6 +74,18 @@ api_v3_key=<32-chars-api-v3-key>
 mch_cert_serial=<40-hex-mch-cert-serial>
 ; 商户 API 私钥文件 apiclient_key.pem（PKCS#1 或 PKCS#8 皆可），建议绝对路径 + chmod 600
 mch_key_path=<abs-path-to>/configs/certs/apiclient_key.pem
+
+; 微信支付公钥（**新商户必填**）
+; 2024 年后微信支付对新商户号不再下发「平台证书」，/v3/certificates 返回
+; 404 RESOURCE_NOT_EXISTS，回调验签必须改用「微信支付公钥」模式。
+; 获取：商户平台 → 账户中心 → API 安全 → 微信支付公钥 → 申请并下载 pub_key.pem
+; 配置后走公钥验签；留空则回落平台证书模式（仅老商户可用）。
+; 注意：这与 mch_key_path 是两把不同的钥匙（分别用于「回调验签」和「请求签名」），缺一不可。
+public_key_path=<abs-path-to>/configs/certs/pub_key.pem
+; 微信支付公钥ID（形如 PUB_KEY_ID_...），商户平台公钥页面展示。
+; 用于校验回调头 Wechatpay-Serial 是否匹配（忽略大小写）；留空则不校验。
+public_key_id=PUB_KEY_ID_...
+
 ; 异步回调公网可访问 HTTPS 地址；必须外网可达且不能挂鉴权中间件
 notify_url=https://rephone.top/api/payment/wechat/notify
 

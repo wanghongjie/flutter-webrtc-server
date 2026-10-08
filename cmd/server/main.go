@@ -95,6 +95,9 @@ func main() {
 	wechatCertSerial := cfg.Section("wechat_pay").Key("mch_cert_serial").String()
 	wechatKeyPath := cfg.Section("wechat_pay").Key("mch_key_path").String()
 	wechatNotifyURL := cfg.Section("wechat_pay").Key("notify_url").String()
+	// 微信支付公钥（新商户模式）：配置了就走公钥验签，不再请求 /v3/certificates。
+	wechatPubKeyPath := cfg.Section("wechat_pay").Key("public_key_path").String()
+	wechatPubKeyID := cfg.Section("wechat_pay").Key("public_key_id").String()
 	wechatPriceMonthly, _ := cfg.Section("wechat_pay").Key("price_monthly_fen").Int()
 	wechatPriceYearly, _ := cfg.Section("wechat_pay").Key("price_yearly_fen").Int()
 	var wechatPayClient *auth.WechatPayClient
@@ -108,6 +111,8 @@ func main() {
 			APIv3Key:          wechatAPIv3Key,
 			MchPrivateKeyPath: wechatKeyPath,
 			NotifyURL:         wechatNotifyURL,
+			WxPublicKeyPath:   wechatPubKeyPath,
+			WxPublicKeyID:     wechatPubKeyID,
 			Enable:            true,
 			PriceMonthlyFen:   wechatPriceMonthly,
 			PriceYearlyFen:    wechatPriceYearly,
