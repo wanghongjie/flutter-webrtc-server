@@ -1,0 +1,85 @@
+; ============================================================================
+; configs/config.ini.example — 配置模板
+;
+; 部署/本地调试时复制为 config.ini 后填入真实值：
+;   cp configs/config.ini.example configs/config.ini
+;
+; 真实 config.ini 已被 .gitignore 忽略（内含 MySQL 口令、SMTP 密码、
+; 微信 APIv3 密钥、商户私钥路径等），**切勿提交进版本库**。
+; ============================================================================
+
+[general]
+domain=rephone.top
+cert=configs/certs/cert.pem
+key=configs/certs/key.pem
+bind=0.0.0.0
+port=8086
+html_root=web
+
+[turn]
+public_ip=47.251.242.213
+port=19302
+realm=flutter-webrtc
+
+[mysql]
+; 请根据你的实际数据库地址和账号修改下面这一行
+dsn=<user>:<password>@tcp(<host>:3306)/webrtc_db?charset=utf8mb4&parseTime=True&loc=Local
+
+[smtp]
+; SMTP发信配置（可选）。配置后 /api/auth/check-email 会真实发邮件；否则仅在日志输出验证码。
+; 推荐：使用465端口(implicit TLS)。
+host=smtp.gmail.com
+port=465
+username=<your-smtp-account>
+password=<your-smtp-app-password>
+from_email=<your-smtp-account>
+from_name=rephone-security
+subject=Verification Code
+use_tls=true
+skip_verify=false
+
+[fcm]
+; FCM HTTP v1 配置：使用服务账号 JSON 调用推送接口
+service_account=<abs-path-to>/configs/fcm-service-account.json
+project_id=<your-fcm-project-id>
+endpoint=https://fcm.googleapis.com/v1/projects/<your-fcm-project-id>/messages:send
+
+[payment]
+; Google Play 服务账号 JSON 文件路径（绝对路径或相对路径）
+service_account=configs/google-play-service-account.json
+; Android 应用包名
+package_name=com.rephone.security
+
+[wechat_pay]
+; ===== 微信支付 APIv3 配置（国内 Android 版）=====
+; 获取路径：微信支付商户平台 https://pay.weixin.qq.com
+;   · 商户号 / API 证书 / APIv3 密钥：账户中心 → API 安全
+;   · AppID：微信开放平台 https://open.weixin.qq.com 「移动应用」详情页
+;     且必须在商户平台「产品中心 → AppID 账号管理」中完成绑定，否则下单报 APPID_MCHID_NOT_MATCH
+;
+; iOS 不接入微信支付（统一走 Apple 内购），本节仅影响 Android 国内版。
+
+; 是否启用微信支付。
+;   true  = 真实链路，下列参数必须完整，否则启动日志报错且支付接口返回 503
+;   false = 微信支付功能整体关闭（无 mock 降级，客户端会员页隐藏入口）
+enable=false
+
+; 移动应用 AppID（wx 开头，16 位）
+app_id=wx0000000000000000
+; 商户号 MchID（商户平台顶部展示的 10 位数字）
+mch_id=0000000000
+; 商户 APIv3 密钥：必须恰好 32 字符，由商户平台自行设置
+api_v3_key=<32-chars-api-v3-key>
+; 商户 API 证书序列号：40 位十六进制，从 apiclient_cert.pem 或商户平台「API 证书」页获取
+mch_cert_serial=<40-hex-mch-cert-serial>
+; 商户 API 私钥文件 apiclient_key.pem（PKCS#1 或 PKCS#8 皆可），建议绝对路径 + chmod 600
+mch_key_path=<abs-path-to>/configs/certs/apiclient_key.pem
+; 异步回调公网可访问 HTTPS 地址；必须外网可达且不能挂鉴权中间件
+notify_url=https://rephone.top/api/payment/wechat/notify
+
+; ===== 服务端统一定价（单位：分）=====
+; 客户端永远不传金额，改价只改这里并重启服务；客户端会员页会通过
+; GET /api/payment/products 拉取展示，无需发版。
+; 留空或 <=0 时回落到默认值（299 / 2399）。
+price_monthly_fen=299
+price_yearly_fen=2399

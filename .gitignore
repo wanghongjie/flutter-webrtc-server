@@ -17,3 +17,12 @@
 .DS_Store
 .idea/
 configs/fcm-service-account.json
+
+# ——— 已知技术债（待处理）———
+# configs/config.ini 与 configs/certs/*.pem 目前**故意入库**，否则部署后会因
+# 缺少配置与 TLS 证书而无法启动。其中含明文凭据：
+#   · MySQL root 口令（mysql.dsn）
+#   · Gmail SMTP 应用专用密码（smtp.password）
+#   · 微信支付 APIv3 密钥（wechat_pay.api_v3_key）
+#   · TLS 私钥（configs/certs/key.pem）
+# 后续改造方向：非敏感配置入库 + 敏感项改由环境变量注入，并轮换上述凭据。
