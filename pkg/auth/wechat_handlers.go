@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
 )
 
 // ———————————————— 请求/响应 DTO ————————————————
@@ -40,12 +42,11 @@ type WechatCreateOrderResponse struct {
 
 // WechatVerifyOrderRequest 客户端通知服务端"SDK 回调显示支付成功"。
 //
-// 安全设计：服务端**不信任前端自报**，收到后仍需查单或依赖异步回调；
-// 该接口主要用于加快 UI 反馈：收到请求后立即触发 WechatPay.QueryOrder
-// 或（dev 模式）直接落库完成订单。
+// 安全设计：服务端**不信任前端自报**，收到后必须主动向微信查单
+// （QueryOrderByOutTradeNo）确认 trade_state，只有 SUCCESS 才发放权益。
 type WechatVerifyOrderRequest struct {
-	OutTradeNo  string `json:"out_trade_no"`
-	Email       string `json:"email"`
+	OutTradeNo    string `json:"out_trade_no"`
+	Email         string `json:"email"`
 	TransactionID string `json:"transaction_id,omitempty"` // 可选，SDK 回调里拿到了就传
 }
 
@@ -57,11 +58,27 @@ type WechatQueryOrderRequest struct {
 
 // ———————————————— HTTP Handler 实现 ————————————————
 
+// wechatPayEnabled 判断微信支付是否真正可用。
+//
+// 条件：客户端已成功初始化（商户私钥/证书/密钥齐全）**且** config.ini 中 enable=true。
+// 不满足时写入 503 并返回 false。
+//
+// 重要：微信支付链路**没有任何 mock / 模拟降级**——未配置完整就是不可用，
+// 这样可彻底杜绝「配置缺失却仍能发放会员权益」的漏洞。
+func (s *Service) wechatPayEnabled(w http.ResponseWriter) bool {
+	if s.WechatPay == nil || !s.WechatPay.cfg.Enable {
+		writeJSON(w, http.StatusServiceUnavailable,
+			jsonResponse{Success: false, Message: "wechat pay is not enabled"})
+		return false
+	}
+	return true
+}
+
 // HandleCreateWechatOrder 处理客户端创建微信支付订单。
 //
 // 流程：
 //  1. AuthMiddleware 已注入 user_id / email，校验入参 email 和 token 一致（防串号）
-//  2. 调用 WechatPay.CreateAppOrder 向微信下单（dev 模式走模拟）
+//  2. 调用 WechatPay.CreateAppOrder 真实请求微信 `/v3/pay/transactions/app` 下单
 //  3. 在 subscriptions 表预插入一条 pending 订单（status=2 表示"已创建待支付"）
 //  4. 返回客户端调起 SDK 所需的全部参数
 //
@@ -71,8 +88,7 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
 		return
 	}
-	if s.WechatPay == nil {
-		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "wechat pay client not configured"})
+	if !s.wechatPayEnabled(w) {
 		return
 	}
 	var req WechatCreateOrderRequest
@@ -100,110 +116,18 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 	}
 
 	userIP := clientIP(r)
-	params, err := s.WechatPay.CreateAppOrder(req.ProductID, req.Plan, req.Email, userIP)
+
+	// 只调用一次微信下单接口：CreateAppOrder 同时返回 outTradeNo 与客户端调起参数，
+	// 两者必须严格对应，否则后续 notify / verify / query 无法定位订单。
+	params, outTradeNo, err := s.WechatPay.CreateAppOrder(req.ProductID, req.Plan, req.Email, userIP)
 	if err != nil {
 		logger.Errorf("[WechatPay] 创建订单失败: %v", err)
 		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "create order failed"})
 		return
 	}
-	// 从 params 中反推订单号？—— CreateAppOrder 内部随机生成了，我们需要拿到 outTradeNo。
-	// 但当前返回结构只返回 params，没有 outTradeNo 原文。
-	// 解决办法：让 CreateAppOrder 同时返回 outTradeNo。但为了少改上层，这里约定：
-	//   params.PrepayID 如果是 dev mock 前缀 "mock_prepay_id_"，其后半段就是 outTradeNo。
-	// 否则需要加字段。我们简单处理：在 CreateAppOrder 返回值加了 outTradeNo 更好。
-	// 这里先 hack 一下，实际建议重构。（下方使用单独的 outTradeNo 生成逻辑更严谨）
 
-	// 更简洁：重新生成一次 outTradeNo 与 CreateAppOrder 内部不一致不行。
-	// 故我们在 CreateAppOrder 中其实并没有把 outTradeNo 暴露出来，
-	// 这里为了避免改已写的 CreateAppOrder 签名，我们用另外方式：
-	// 让我们通过 params + attach 落库时，订单号可以在落库后再用一次。
-	// 但 subscriptions 表的 order_id 是唯一键，必须是微信真实 out_trade_no。
-	//
-	// 方案：修改 CreateAppOrder 返回值把 outTradeNo 返回。
-	// 但为了最小改动，这里我们让 CreateAppOrder 直接返回 (params, outTradeNo, err)。
-	//
-	// -> 由于 wechat_pay.go 已写完且 buildAppPayParams 不知道 outTradeNo，
-	//    我在下方改用另一种做法：在落库时把预订单的 out_trade_no 直接用
-	//    generateWechatOutTradeNo() 再生成一份，而不是和微信那一份对齐。
-	//    这样不一致，后续 verify 会查不到 —— 所以必须让 CreateAppOrder 暴露 outTradeNo。
-	//
-	// 结论：直接把 create order + insert pending 合并到 handler 里更直观，
-	//       让 WechatPay.CreateAppOrder 额外返回 (outTradeNo)。
-	//       我们在下面直接读 WechatPay 的 CreateAppOrder 结果...
-	//       （因为上面已经调用过 CreateAppOrder，但它返回的只有 params）
-	//
-	// 为了不重构已写的函数，这里直接再次 generate 一个编号，
-	// 并**把 subscriptions.order_id 作为本地 pending 预订单号保存**；
-	// 真正的微信 out_trade_no 存在 purchase_token 或一个额外字段里。
-	// 但现有 subscriptions 表没有 wechat_out_trade_no 扩展字段。
-	//
-	// 最简单做法：在下面直接把 pending 订单的 order_id
-	// 用 params.PrepayID 的后半段推导出来（dev 模式有迹可循），
-	// 真实环境下：我们应该重新改 CreateAppOrder 签名，把 outTradeNo 返回。
-	//
-	// -> 最终方案：重新调用一个更底层的 helper 生成 out_trade_no，
-	//    并同时"手动"完成之前 CreateAppOrder 内部做过的工作。
-	//    这是为了避免改动已经写好的 CreateAppOrder 函数签名。
-	//
-	// 实际上，我决定直接在下面生成 outTradeNo（与 CreateAppOrder 内部不一致）
-	// 并在 subscriptions 表中用这个本地编号；当微信异步回调回来时，
-	// 真正的 out_trade_no 会覆盖 order_id。（只要 allow duplicate？不行 order_id 是唯一键）
-	//
-	// 唯一正确做法：重构 CreateAppOrder 返回 outTradeNo。
-	// 我直接修改已调用的部分，把 outTradeNo 返回。
-	//
-	// -> 但 CreateAppOrder 的返回值只返回了 params。
-	// 我在这里做一个小 hack：根据 buildAppPayParams 的实现，我们
-	// 无法从 params 反推出 outTradeNo。所以我干脆在 handler 内部
-	// 生成 outTradeNo，然后给它传递给一个变体函数。为了不重写 wechat_pay.go 太多
-	// （当前 WechatPayClient 没有公开内部的下单 API），我直接在下面
-	// 把 CreateAppOrder 逻辑重写一遍，确保 outTradeNo 可以被记录。
-	//
-	// （这是典型的「开发过程中发现接口设计问题」，这里做修正）
-
-	outTradeNo := generateWechatOutTradeNo()
-	amount := resolveWechatAmount(req.ProductID, req.Plan)
-	attach := fmt.Sprintf("%s|%s", req.Email, req.Plan)
-	description := fmt.Sprintf("RePhone Security 会员 %s", friendlyPlanLabel(req.Plan))
-	notifyURL := s.WechatCallbackURL
-	if notifyURL == "" {
-		notifyURL = "https://rephone.top/api/payment/wechat/notify"
-	}
-
-	var prepayID string
-	if !s.WechatPay.cfg.Enable {
-		prepayID = "mock_prepay_id_" + outTradeNo
-		logger.Infof("[WechatPay][Dev] 模拟下单：order=%s product=%s plan=%s email=%s amount=%d分",
-			outTradeNo, req.ProductID, req.Plan, req.Email, amount)
-	} else {
-		reqBody := WechatAppPrepayRequest{
-			AppID:       s.WechatPay.cfg.AppID,
-			MchID:       s.WechatPay.cfg.MchID,
-			Description: description,
-			OutTradeNo:  outTradeNo,
-			NotifyURL:   notifyURL,
-			Amount:      WechatPrepayAmount{Total: amount, Currency: "CNY"},
-			Attach:      attach,
-		}
-		var resp WechatAppPrepayResponse
-		if err := s.WechatPay.doRequest(r.Context(), http.MethodPost,
-			"/v3/pay/transactions/app", reqBody, &resp); err != nil {
-			logger.Errorf("[WechatPay] 下单 API 失败: %v", err)
-			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "create order failed at wechat"})
-			return
-		}
-		prepayID = resp.PrepayID
-	}
-
-	clientParams, err := s.WechatPay.buildAppPayParams(outTradeNo, prepayID, attach)
-	if err != nil {
-		logger.Errorf("[WechatPay] 构造客户端参数失败: %v", err)
-		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "build client params failed"})
-		return
-	}
-
-	// 3. 预插入 pending 订单（status=2：已创建、待支付）
-	//    注意：同一 order_id（outTradeNo）若重复创建会撞唯一键，需捕获重复错误并直接返回。
+	// 预插入 pending 订单（status=2：已创建、待支付）
+	// 同一 order_id（outTradeNo）重复创建时走 ON DUPLICATE KEY UPDATE 刷新，不报错。
 	now := time.Now()
 	expireAt := now.Add(resolveWechatDuration(req.Plan))
 	_, dbErr := s.DB.Exec(`
@@ -217,7 +141,7 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 			platform = 'wechat',
 			updated_at = NOW(),
 			status = 2
-	`, req.Email, outTradeNo, req.ProductID, req.Plan, prepayID, now, expireAt)
+	`, req.Email, outTradeNo, req.ProductID, req.Plan, params.PrepayID, now, expireAt)
 	if dbErr != nil {
 		logger.Errorf("[WechatPay] 预写入订单失败: %v", dbErr)
 		// 非致命：仍把下单结果返回客户端，后续 notify/verify 兜底落库
@@ -228,7 +152,7 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 		Data: WechatCreateOrderResponse{
 			Success:    true,
 			OutTradeNo: outTradeNo,
-			Params:     *clientParams,
+			Params:     *params,
 		},
 	})
 }
@@ -236,19 +160,21 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 // HandleWechatNotify 处理微信支付结果异步回调。
 //
 // 注意：该接口**不挂 AuthMiddleware**，因为调用方是微信官方服务器。
-// 安全机制：
-//   - 微信 APIv3 回调带 Wechatpay-Signature / Wechatpay-Timestamp / Wechatpay-Nonce / Wechatpay-Serial 请求头
-//   - 先做签名验证（需微信平台证书，TODO 补充完整实现），当前先用 APIv3 解密 + 校验 AppID/MchID 作为防线
-//   - 幂等：同一 transaction_id 多次回调不重复加时长
+// 安全机制（必须全部通过才会发放权益）：
+//  1. 回调签名验证：用微信平台证书公钥校验 Wechatpay-Signature（防伪造/重放）
+//  2. 报文解密：用 APIv3 密钥 AES-256-GCM 解密 resource（防中间人）
+//  3. 商户身份校验：解密后的 appid / mchid 必须与本地配置一致（防跨商户串单）
+//  4. 幂等：同一 transaction_id 多次回调不重复加时长
+//
+// 全程真实链路：签名验证与解密任一失败即返回 FAIL，不存在 mock 兜底。
 //
 // 路由：POST /api/payment/wechat/notify
 //
 // 响应：微信官方要求成功时返回 {"code":"SUCCESS"}，失败返回 {"code":"FAIL","message":"..."}（固定结构）
 func (s *Service) HandleWechatNotify(w http.ResponseWriter, r *http.Request) {
-	if s.WechatPay == nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(`{"code":"FAIL","message":"wechat client not configured"}`))
+	if s.WechatPay == nil || !s.WechatPay.cfg.Enable {
+		logger.Errorf("[WechatPay] 收到 notify 但微信支付未启用，忽略该回调")
+		writeWechatNotifyResult(w, false, "wechat pay is not enabled")
 		return
 	}
 
@@ -256,71 +182,57 @@ func (s *Service) HandleWechatNotify(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		logger.Errorf("[WechatPay] 读取 notify body 失败: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"code":"FAIL","message":"read body"}`))
+		writeWechatNotifyResult(w, false, "read body")
 		return
 	}
 	log.Printf("[WechatPay] 收到 notify，raw=%s", string(bodyBytes))
 
-	// 2. 反序列化并解密 resource
+	// 2. 回调签名验证：notify 接口无 JWT，这是唯一的身份认证手段，强制开启。
+	if err := s.WechatPay.VerifyNotifySignature(r.Header, bodyBytes); err != nil {
+		logger.Errorf("[WechatPay] notify 签名验证失败（疑似伪造回调）: %v", err)
+		writeWechatNotifyResult(w, false, "signature verify failed")
+		return
+	}
+
+	// 3. 反序列化并解密 resource
 	var payload WechatNotifyPayload
 	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
 		logger.Errorf("[WechatPay] notify payload 解析失败: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"code":"FAIL","message":"invalid payload"}`))
+		writeWechatNotifyResult(w, false, "invalid payload")
 		return
 	}
 
 	decrypted, err := s.WechatPay.DecryptNotifyResource(payload.Resource)
-	// Dev 模式下允许解密失败（比如我们在 mock 通知），fallback 直接通过 query 模拟
-	if err != nil && s.WechatPay.cfg.Enable {
+	if err != nil {
 		logger.Errorf("[WechatPay] notify resource 解密失败: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(`{"code":"FAIL","message":"decrypt failed"}`))
+		writeWechatNotifyResult(w, false, "decrypt failed")
 		return
 	}
 
-	// Dev 模式：解密失败时尝试把 out_trade_no 从请求 JSON 的 id/summary 里推，
-	// 或直接接受一个简化的 mock notify（客户端手动发的）
-	if err != nil && !s.WechatPay.cfg.Enable {
-		// Dev mock：直接根据 payload.id 或 summary 解析；如果不行，
-		// 允许 request body 里有 dev_mock_out_trade_no/dev_mock_email 扩展字段。
-		var fallback struct {
-			OutTradeNo string `json:"dev_mock_out_trade_no"`
-			Email      string `json:"dev_mock_email"`
-			Plan       string `json:"dev_mock_plan"`
-		}
-		_ = json.Unmarshal(bodyBytes, &fallback)
-		if fallback.OutTradeNo != "" {
-			logger.Infof("[WechatPay][Dev] 用 mock notify: order=%s email=%s", fallback.OutTradeNo, fallback.Email)
-			if err := s.applyWechatPaymentSuccess(fallback.OutTradeNo, "MOCK_TX_"+fallback.OutTradeNo, fallback.Email, fallback.Plan); err != nil {
-				logger.Errorf("[WechatPay][Dev] 应用支付成功结果失败: %v", err)
-			}
-		}
-		// Dev 模式直接返回 SUCCESS
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"code":"SUCCESS"}`))
+	// 4. 商户身份校验：确认这笔订单确实属于本商户/本应用
+	if decrypted.AppID != "" && decrypted.AppID != s.WechatPay.cfg.AppID {
+		logger.Errorf("[WechatPay] notify appid 不匹配: got=%s want=%s", decrypted.AppID, s.WechatPay.cfg.AppID)
+		writeWechatNotifyResult(w, false, "appid mismatch")
+		return
+	}
+	if decrypted.MchID != "" && decrypted.MchID != s.WechatPay.cfg.MchID {
+		logger.Errorf("[WechatPay] notify mchid 不匹配: got=%s want=%s", decrypted.MchID, s.WechatPay.cfg.MchID)
+		writeWechatNotifyResult(w, false, "mchid mismatch")
 		return
 	}
 
-	// 3. 根据 trade_state 判断
+	// 6. 根据 trade_state 判断
 	if decrypted.TradeState != "SUCCESS" {
 		logger.Infof("[WechatPay] notify trade_state=%s (非成功)，order=%s", decrypted.TradeState, decrypted.OutTradeNo)
 		// 非成功状态：把 subscriptions.status 更新成 0（失败/关闭），不抛错。
 		if decrypted.OutTradeNo != "" {
 			_, _ = s.DB.Exec("UPDATE subscriptions SET status = 0, updated_at = NOW() WHERE order_id = ?", decrypted.OutTradeNo)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"code":"SUCCESS"}`))
+		writeWechatNotifyResult(w, true, "")
 		return
 	}
 
-	// 4. 应用支付成功结果（更新 users + subscriptions）
+	// 7. 应用支付成功结果（更新 users + subscriptions）
 	email, plan, _ := parseAttach(decrypted.Attach)
 	if email == "" {
 		// attach 为空时，从 subscriptions 表里用 out_trade_no 反查 email
@@ -331,24 +243,37 @@ func (s *Service) HandleWechatNotify(w http.ResponseWriter, r *http.Request) {
 			email = dbEmail.String
 		}
 		if dbPlan.Valid && plan == "" {
-			plan = dbPlan.String()
+			plan = dbPlan.String
 		}
 	}
 	if email == "" {
 		logger.Errorf("[WechatPay] notify 无法识别用户: order=%s attach=%s", decrypted.OutTradeNo, decrypted.Attach)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"code":"SUCCESS"}`))
+		// 返回 FAIL 让微信重试，避免因 transient 问题永久丢失这笔权益
+		writeWechatNotifyResult(w, false, "unknown user")
 		return
 	}
 	if err := s.applyWechatPaymentSuccess(decrypted.OutTradeNo, decrypted.TransactionID, email, plan); err != nil {
 		logger.Errorf("[WechatPay] 应用支付成功结果失败: %v", err)
-		// 即使落库失败，也把 SUCCESS 返回给微信避免重复回调（10s 超时）
+		writeWechatNotifyResult(w, false, "apply failed")
+		return
 	}
 
+	writeWechatNotifyResult(w, true, "")
+}
+
+// writeWechatNotifyResult 按微信官方要求返回固定结构的回调响应。
+//
+// 注意：微信要求无论业务成功与否，HTTP 状态码都应为 200，
+// 通过 body 中的 code 字段（SUCCESS / FAIL）表达处理结果。
+func writeWechatNotifyResult(w http.ResponseWriter, ok bool, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"code":"SUCCESS"}`))
+	if ok {
+		_, _ = w.Write([]byte(`{"code":"SUCCESS"}`))
+		return
+	}
+	body, _ := json.Marshal(map[string]string{"code": "FAIL", "message": message})
+	_, _ = w.Write(body)
 }
 
 // HandleQueryWechatOrder 处理客户端兜底查单请求。
@@ -359,8 +284,7 @@ func (s *Service) HandleQueryWechatOrder(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
 		return
 	}
-	if s.WechatPay == nil {
-		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "wechat pay client not configured"})
+	if !s.wechatPayEnabled(w) {
 		return
 	}
 	var req WechatQueryOrderRequest
@@ -389,17 +313,11 @@ func (s *Service) HandleQueryWechatOrder(w http.ResponseWriter, r *http.Request)
 		writeJSON(w, http.StatusOK, jsonResponse{
 			Success: true,
 			Data: map[string]interface{}{
-				"paid":          true,
+				"paid":           true,
 				"transaction_id": txID.String,
-				"plan":          plan.String,
+				"plan":           plan.String,
 			},
 		})
-		return
-	}
-
-	// 再向微信查单（dev 模式直接视为未支付）
-	if !s.WechatPay.cfg.Enable {
-		writeJSON(w, http.StatusOK, jsonResponse{Success: true, Data: map[string]interface{}{"paid": false, "dev": true}})
 		return
 	}
 
@@ -445,8 +363,7 @@ func (s *Service) HandleVerifyWechatOrder(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
 		return
 	}
-	if s.WechatPay == nil {
-		writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: "wechat pay client not configured"})
+	if !s.wechatPayEnabled(w) {
 		return
 	}
 	var req WechatVerifyOrderRequest
@@ -472,24 +389,11 @@ func (s *Service) HandleVerifyWechatOrder(w http.ResponseWriter, r *http.Request
 	err := s.DB.QueryRow(`SELECT status, product_id, IFNULL(base_plan_id,'') FROM subscriptions WHERE order_id = ? AND email = ? LIMIT 1`,
 		req.OutTradeNo, req.Email).Scan(&status, &productID, &plan)
 	if err == nil && status == 1 {
-		// 已支付成功，直接触发刷新会员态
-		_ = s.applyWechatPaymentSuccess(req.OutTradeNo, req.TransactionID, req.Email, plan.String)
-		writeJSON(w, http.StatusOK, jsonResponse{Success: true, Data: map[string]interface{}{"paid": true, "verified": true}})
-		return
-	}
-
-	// Dev 模式：直接把该订单置为成功（方便联调，不走真实微信）
-	if !s.WechatPay.cfg.Enable {
-		logger.Infof("[WechatPay][Dev] verify 接口直接模拟支付成功: order=%s email=%s", req.OutTradeNo, req.Email)
-		txID := req.TransactionID
-		if txID == "" {
-			txID = "DEV_TX_" + req.OutTradeNo
-		}
-		if err := s.applyWechatPaymentSuccess(req.OutTradeNo, txID, req.Email, plan.String); err != nil {
-			writeJSON(w, http.StatusInternalServerError, jsonResponse{Success: false, Message: err.Error()})
-			return
-		}
-		writeJSON(w, http.StatusOK, jsonResponse{Success: true, Data: map[string]interface{}{"paid": true, "verified": true, "dev": true}})
+		// 本地已是「生效中」，说明真实回调/查单已发放过权益，直接返回，不重复发放。
+		writeJSON(w, http.StatusOK, jsonResponse{
+			Success: true,
+			Data:    map[string]interface{}{"paid": true, "verified": true, "plan": plan.String},
+		})
 		return
 	}
 
@@ -523,6 +427,30 @@ func (s *Service) HandleVerifyWechatOrder(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// HandleListPaymentProducts 下发服务端统一定价，供会员页渲染价格。
+//
+// 目的：消除「客户端硬编码一份价格、服务端硬编码另一份」的双份事实来源问题。
+// 改价只需改 configs/config.ini 并重启服务，客户端无需发版。
+//
+// 路由：GET /api/payment/products（无需登录，价格本身不是敏感信息）
+func (s *Service) HandleListPaymentProducts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+	if !s.wechatPayEnabled(w) {
+		return
+	}
+	writeJSON(w, http.StatusOK, jsonResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"channel":  "wechat",
+			"currency": "CNY",
+			"products": s.WechatPay.ListProducts(),
+		},
+	})
+}
+
 // ———————————————— 内部：应用支付成功结果 ————————————————
 
 // applyWechatPaymentSuccess 把微信支付成功的结果落到 DB。
@@ -541,13 +469,14 @@ func (s *Service) applyWechatPaymentSuccess(outTradeNo, transactionID, email, pl
 
 	// 1. 查本订单当前状态，确保幂等
 	var (
-		curStatus   int
-		curTxID     sql.NullString
-		curProduct  string
-		curPlan     sql.NullString
-		curExpire   sql.NullTime
+		curStatus  int
+		curTxID    sql.NullString
+		curProduct string
+		curPlan    sql.NullString
+		curExpire  sql.NullTime
 	)
-	err := s.DB.QueryRow(`
+	// 订单不存在（notify 先于 create-order 落库到达）时 err 非 nil，属正常情况，忽略。
+	_ = s.DB.QueryRow(`
 		SELECT status, IFNULL(purchase_token,''), product_id, IFNULL(base_plan_id,''), expire_time
 		FROM subscriptions WHERE order_id = ? AND email = ? LIMIT 1
 	`, outTradeNo, email).Scan(&curStatus, &curTxID, &curProduct, &curPlan, &curExpire)
@@ -568,7 +497,14 @@ func (s *Service) applyWechatPaymentSuccess(outTradeNo, transactionID, email, pl
 
 	duration := resolveWechatDuration(planValue)
 
-	// 2. 如果订单已经 status=1 且 transaction_id 一致，说明重复回调，直接返回。
+	// 2. 微信支付必须带 transaction_id（微信支付订单号）。
+	//    必须在任何写库操作之前校验：否则一旦为空，会出现
+	//    「users 已加时长但 subscriptions 未落库」的不一致状态。
+	if transactionID == "" {
+		return fmt.Errorf("applyWechatPaymentSuccess: transaction_id is required")
+	}
+
+	// 3. 如果订单已经 status=1 且 transaction_id 一致，说明重复回调，直接返回。
 	if curStatus == 1 && curTxID.Valid && curTxID.String == transactionID {
 		logger.Infof("[WechatPay] 订单已处理（幂等跳过）: order=%s tx=%s", outTradeNo, transactionID)
 		return nil
@@ -603,9 +539,6 @@ func (s *Service) applyWechatPaymentSuccess(outTradeNo, transactionID, email, pl
 
 	// 5. upsert subscriptions：订单号唯一键冲突时更新
 	purchaseToken := transactionID
-	if purchaseToken == "" {
-		purchaseToken = "DEV_" + outTradeNo
-	}
 	if _, err := s.DB.Exec(`
 		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
 		VALUES (?, ?, ?, ?, ?, 'wechat', NOW(), ?, 1)

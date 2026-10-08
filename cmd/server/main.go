@@ -95,8 +95,12 @@ func main() {
 	wechatCertSerial := cfg.Section("wechat_pay").Key("mch_cert_serial").String()
 	wechatKeyPath := cfg.Section("wechat_pay").Key("mch_key_path").String()
 	wechatNotifyURL := cfg.Section("wechat_pay").Key("notify_url").String()
+	wechatPriceMonthly, _ := cfg.Section("wechat_pay").Key("price_monthly_fen").Int()
+	wechatPriceYearly, _ := cfg.Section("wechat_pay").Key("price_yearly_fen").Int()
 	var wechatPayClient *auth.WechatPayClient
-	if wechatEnable || wechatAppID != "" || wechatMchID != "" {
+	// 只在 enable=true 时初始化：微信支付没有 mock 降级，
+	// 配置不完整则客户端为 nil，所有 /api/payment/wechat/* 接口返回 503。
+	if wechatEnable {
 		wxClient, err := auth.NewWechatPayClient(auth.WechatConfig{
 			AppID:             wechatAppID,
 			MchID:             wechatMchID,
@@ -104,13 +108,18 @@ func main() {
 			APIv3Key:          wechatAPIv3Key,
 			MchPrivateKeyPath: wechatKeyPath,
 			NotifyURL:         wechatNotifyURL,
-			Enable:            wechatEnable,
+			Enable:            true,
+			PriceMonthlyFen:   wechatPriceMonthly,
+			PriceYearlyFen:    wechatPriceYearly,
 		})
 		if err != nil {
-			logger.Errorf("init WeChat Pay client error: %v", err)
+			// 初始化失败 = 商户参数缺失或私钥不可用，支付功能停用，但不阻断其他服务启动。
+			logger.Errorf("init WeChat Pay client error (微信支付将不可用): %v", err)
 		} else {
 			wechatPayClient = wxClient
 		}
+	} else {
+		logger.Infof("[WechatPay] enable=false，微信支付功能关闭（无 mock 降级）")
 	}
 
 	authService := &auth.Service{
@@ -173,6 +182,8 @@ func main() {
 	http.HandleFunc("/api/payment/wechat/notify", authService.HandleWechatNotify)
 	http.HandleFunc("/api/payment/wechat/query", auth.AuthMiddleware(authService.HandleQueryWechatOrder))
 	http.HandleFunc("/api/payment/wechat/verify", auth.AuthMiddleware(authService.HandleVerifyWechatOrder))
+	// 服务端统一定价下发，消除客户端硬编码价格
+	http.HandleFunc("/api/payment/products", authService.HandleListPaymentProducts)
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()

@@ -15,7 +15,7 @@ CREATE TABLE users (
   last_verify_at TIMESTAMP DEFAULT NULL COMMENT '最后一次向 Google 校验的时间',
   subscription_state TINYINT DEFAULT 0 COMMENT '订阅状态: 0=无/过期, 1=生效中, 2=宽限期, 3=暂停',
   language      VARCHAR(16) DEFAULT NULL COMMENT '语言环境',
-  platform      ENUM('android', 'ios') DEFAULT NULL COMMENT '平台类型',
+  platform      ENUM('android', 'ios', 'wechat') DEFAULT NULL COMMENT '最近一次支付渠道: android=Google Play, ios=App Store, wechat=微信支付',
   fcm_token     VARCHAR(512) DEFAULT NULL COMMENT 'FCM 推送 token',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -74,14 +74,17 @@ CREATE TABLE subscriptions (
   base_plan_id VARCHAR(64) NULL COMMENT 'Android Base Plan ID (monthly/yearly) when product_id=rephone_pro',
   purchase_token TEXT NOT NULL COMMENT '购买凭证Token (iOS receipt_data 或 Google purchaseToken)',
   purchase_token_hash BINARY(32) GENERATED ALWAYS AS (UNHEX(SHA2(purchase_token, 256))) STORED,
-  platform ENUM('android', 'ios') NOT NULL DEFAULT 'android',
+  platform ENUM('android', 'ios', 'wechat') NOT NULL DEFAULT 'android' COMMENT '支付渠道: android=Google Play, ios=App Store, wechat=微信支付',
   purchase_time TIMESTAMP NULL COMMENT '购买时间',
   expire_time TIMESTAMP NULL COMMENT '过期时间',
-  status TINYINT DEFAULT 1 COMMENT '状态: 0=无/过期, 1=生效中, 2=宽限期, 3=暂停',
+  status TINYINT DEFAULT 1 COMMENT '状态: 0=无效/过期, 1=生效中, 2=待支付, 3=宽限期, 4=暂停',
   auto_renewing TINYINT(1) DEFAULT 1 COMMENT '是否自动续费',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_email (email),
   INDEX idx_order_id (order_id),
+  INDEX idx_email_status (email, status),
   UNIQUE KEY uk_order_id (order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户订阅记录表';
+
+-- 已存在的库请执行 database/migrations/001_wechat_pay_support.sql 完成升级
