@@ -33,6 +33,12 @@ import (
 //   - APIv3Key：APIv3 密钥，32 字节字符串，用于 AES-GCM 解密回调和平台证书
 //   - MchPrivateKeyPath：商户 API 私钥 apiclient_key.pem 文件路径
 //   - NotifyURL：支付结果异步回调通知地址，必须是公网可访问的 HTTPS
+//   - WxPublicKeyPath / WxPublicKeyID：**微信支付公钥**（新商户必填）。
+//     2024 年后微信支付对新商户号不再下发「平台证书」，
+//     GET /v3/certificates 直接返回 404 RESOURCE_NOT_EXISTS，
+//     回调验签必须改用「微信支付公钥」模式（商户平台 → API 安全 → 申请）。
+//     配置了公钥就走公钥验签，不再请求 /v3/certificates；
+//     未配置则回落到旧的平台证书模式（仅老商户可用）。
 //   - Enable：是否启用微信支付。false 时微信支付功能整体关闭（所有接口返回 503），
 //     **不存在任何 mock / 模拟降级通路**，避免出现「未配置却仍能发放权益」的漏洞。
 //   - PriceMonthlyFen / PriceYearlyFen：服务端统一定价（单位：分）。
@@ -44,6 +50,8 @@ type WechatConfig struct {
 	APIv3Key          string
 	MchPrivateKeyPath string
 	NotifyURL         string
+	WxPublicKeyPath   string
+	WxPublicKeyID     string
 	Enable            bool
 	PriceMonthlyFen   int
 	PriceYearlyFen    int
@@ -65,9 +73,14 @@ type WechatPayClient struct {
 	httpCli *http.Client
 	baseURL string
 
-	// 微信平台证书缓存：用于校验回调请求的 Wechatpay-Signature。
+	// wxPubKey：微信支付公钥（新商户模式）。非 nil 时回调验签走公钥模式，
+	// 不再依赖 /v3/certificates 下发的平台证书。
+	wxPubKey *rsa.PublicKey
+
+	// 微信平台证书缓存：用于校验回调请求的 Wechatpay-Signature（老商户模式）。
 	// 平台证书由 /v3/certificates 接口下发（密文需用 APIv3Key 解密），
 	// 按 serial_no 索引，过期或缺失时自动刷新。
+	// 新商户号该接口返回 404，此时 certs 恒为空，验签改走 wxPubKey。
 	certMu      sync.RWMutex
 	certs       map[string]*wechatPlatformCert
 	certsLastAt time.Time
@@ -143,12 +156,61 @@ func NewWechatPayClient(cfg WechatConfig) (*WechatPayClient, error) {
 		certs:   make(map[string]*wechatPlatformCert),
 	}
 
-	// 预热平台证书：回调验签依赖它。失败不阻断启动（首回调时会重试），
-	// 但会打出明确的告警，便于运维第一时间发现证书/密钥配置问题。
+	// 加载「微信支付公钥」（新商户模式）。
+	// 新商户号 GET /v3/certificates 会返回 404 RESOURCE_NOT_EXISTS，
+	// 只能走公钥验签；这里加载成功即进入公钥模式，不再预热平台证书。
+	if p := strings.TrimSpace(cfg.WxPublicKeyPath); p != "" {
+		pubKey, err := loadWechatPublicKey(p)
+		if err != nil {
+			// 公钥是回调验签的唯一依据，加载失败必须明确暴露，不能静默降级。
+			return nil, fmt.Errorf("load wechat pay public key: %w", err)
+		}
+		cli.wxPubKey = pubKey
+		logger.Infof("[WechatPay] 使用微信支付公钥验签模式：public_key_id=%s path=%s",
+			cfg.WxPublicKeyID, p)
+		return cli, nil
+	}
+
+	// 未配置公钥 → 老商户的平台证书模式：预热平台证书，回调验签依赖它。
+	// 失败不阻断启动（首回调时会重试），但打出明确告警便于运维发现配置问题。
 	if _, err := cli.getPlatformCert(""); err != nil {
 		logger.Errorf("[WechatPay] 平台证书加载失败（回调验签将不可用，首次回调时会自动重试）: %v", err)
+		logger.Errorf("[WechatPay] 若商户号较新（/v3/certificates 返回 RESOURCE_NOT_EXISTS），" +
+			"请在商户平台「API 安全」申请微信支付公钥，并配置 wechat_pay.public_key_path / public_key_id")
 	}
 	return cli, nil
+}
+
+// loadWechatPublicKey 从 PEM 文件加载微信支付公钥。
+//
+// 支持两种常见格式：
+//   - "PUBLIC KEY"（PKCS#8 / SubjectPublicKeyInfo，商户平台下载的多为此格式）
+//   - "RSA PUBLIC KEY"（PKCS#1）
+func loadWechatPublicKey(path string) (*rsa.PublicKey, error) {
+	pemBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %w", err)
+	}
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return nil, fmt.Errorf("invalid pem format")
+	}
+	switch block.Type {
+	case "PUBLIC KEY":
+		raw, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse pkix public key: %w", err)
+		}
+		pub, ok := raw.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("public key is not rsa, got %T", raw)
+		}
+		return pub, nil
+	case "RSA PUBLIC KEY":
+		return x509.ParsePKCS1PublicKey(block.Bytes)
+	default:
+		return nil, fmt.Errorf("unsupported pem block type: %s (期望 PUBLIC KEY 或 RSA PUBLIC KEY)", block.Type)
+	}
 }
 
 // signWechatRequest 生成 Authorization 头中需要的签名串（APIv3 签名规范）。
@@ -768,9 +830,23 @@ func (c *WechatPayClient) VerifyNotifySignature(header http.Header, body []byte)
 		return fmt.Errorf("wechatpay timestamp out of range (skew=%s)", skew)
 	}
 
-	cert, err := c.getPlatformCert(serial)
-	if err != nil {
-		return fmt.Errorf("get platform cert: %w", err)
+	// 选择验签公钥：
+	//   1) 配置了「微信支付公钥」→ 公钥模式（新商户，/v3/certificates 不可用）
+	//   2) 否则 → 平台证书模式（老商户）
+	var pubKey *rsa.PublicKey
+	if c.wxPubKey != nil {
+		// 公钥模式下 Wechatpay-Serial 是「微信支付公钥ID」。
+		// 若配置了 public_key_id 则严格比对，防止商户号下有多把公钥时串用。
+		if id := strings.TrimSpace(c.cfg.WxPublicKeyID); id != "" && !strings.EqualFold(id, serial) {
+			return fmt.Errorf("wechatpay serial mismatch: got=%s want public_key_id=%s", serial, id)
+		}
+		pubKey = c.wxPubKey
+	} else {
+		cert, err := c.getPlatformCert(serial)
+		if err != nil {
+			return fmt.Errorf("get platform cert: %w", err)
+		}
+		pubKey = cert.pubKey
 	}
 
 	sigBytes, err := base64.StdEncoding.DecodeString(signature)
@@ -780,7 +856,7 @@ func (c *WechatPayClient) VerifyNotifySignature(header http.Header, body []byte)
 
 	msg := fmt.Sprintf("%s\n%s\n%s\n", ts, nonce, string(body))
 	hash := sha256.Sum256([]byte(msg))
-	if err := rsa.VerifyPKCS1v15(cert.pubKey, crypto.SHA256, hash[:], sigBytes); err != nil {
+	if err := rsa.VerifyPKCS1v15(pubKey, crypto.SHA256, hash[:], sigBytes); err != nil {
 		return fmt.Errorf("wechatpay signature mismatch: %w", err)
 	}
 	return nil
