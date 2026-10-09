@@ -163,6 +163,11 @@
   td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   .muted { color: var(--text-dim); }
   .ellipsis { max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fb-content { max-width: 460px; cursor: pointer; }
+  .fb-content.collapsed { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fb-content.expanded { white-space: pre-wrap; word-break: break-word; background: rgba(79,140,255,.06); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+  .fb-content:hover { color: var(--primary); }
+  .fb-content.expanded:hover { color: var(--text); }
   .clickable { cursor: pointer; color: var(--primary); }
 
   .badge {
@@ -736,12 +741,11 @@
       $('fEmpty').style.display = rows.length ? 'none' : 'block';
       $('fBody').innerHTML = rows.map(function (r) {
         var content = r.content || '';
-        var short = content.length > 90 ? content.slice(0, 90) + '…' : content;
         return '<tr>' +
           '<td class="mono">' + r.id + '</td>' +
           '<td class="mono">' + esc(fmtTime(r.created_at)) + '</td>' +
           '<td>' + (r.email ? esc(r.email) : '<span class="muted">匿名</span>') + '</td>' +
-          '<td><div class="ellipsis" title="' + esc(content) + '">' + esc(short) + '</div></td>' +
+          '<td><div class="fb-content collapsed" title="点击展开 / 收起全文">' + esc(content) + '</div></td>' +
           '<td>' + esc(r.contact || '-') + '</td>' +
           '<td class="mono">' + esc(r.device_id || '-') + '</td>' +
           '<td class="mono">' + esc(r.ip || '-') + '</td>' +
@@ -866,7 +870,12 @@
   });
   $('fBody').addEventListener('click', function (e) {
     var del = e.target.closest ? e.target.closest('[data-del]') : null;
-    if (del) deleteFeedback(del.getAttribute('data-del'));
+    if (del) { deleteFeedback(del.getAttribute('data-del')); return; }
+    var fb = e.target.closest ? e.target.closest('.fb-content') : null;
+    if (fb) {
+      fb.classList.toggle('collapsed');
+      fb.classList.toggle('expanded');
+    }
   });
 
   $('drawerMask').onclick = closeDrawer;
