@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Rephone 后台管理</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --bg-soft: #161d2b;
+    --panel: #1b2434;
+    --panel-2: #212c3f;
+    --border: #2b3648;
+    --text: #e6ecf5;
+    --text-dim: #93a1b8;
+    --primary: #4f8cff;
+    --primary-dim: #2d5fd6;
+    --success: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --purple: #a78bfa;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  a { color: var(--primary); text-decoration: none; }
+
+  /* ---------- 登录遮罩 ---------- */
+  #loginMask {
+    position: fixed; inset: 0; z-index: 100;
+    background: radial-gradient(circle at 50% 30%, #1d2740 0%, #0f1420 70%);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  #loginMask.hidden { display: none; }
+  .login-card {
+    width: 100%; max-width: 400px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  .login-card h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: .5px; }
+  .login-card p { margin: 0 0 22px; color: var(--text-dim); font-size: 13px; }
+  .login-card label { display: block; margin-bottom: 8px; color: var(--text-dim); font-size: 13px; }
+
+  /* ---------- 布局 ---------- */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px; background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .logo {
+    width: 32px; height: 32px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg, var(--primary), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px; color: #fff;
+  }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  .spacer { flex: 1; }
+  .tag {
+    font-size: 12px; color: var(--text-dim);
+    background: var(--panel-2); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 999px;
+  }
+
+  nav.tabs {
+    display: flex; gap: 4px; padding: 12px 22px 0;
+    border-bottom: 1px solid var(--border); background: var(--bg-soft);
+    position: sticky; top: 61px; z-index: 19;
+  }
+  nav.tabs button {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-dim); font-size: 14px; padding: 10px 16px;
+    cursor: pointer; font-family: inherit; border-radius: 6px 6px 0 0;
+  }
+  nav.tabs button:hover { color: var(--text); }
+  nav.tabs button.active { color: var(--text); border-bottom-color: var(--primary); font-weight: 600; }
+
+  main { padding: 22px; max-width: 1440px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---------- 通用控件 ---------- */
+  input[type=text], input[type=password], input[type=date], select {
+    background: var(--panel-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 12px;
+    font-size: 14px; font-family: inherit; outline: none; width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--primary); }
+  input::placeholder { color: #6b7a93; }
+  select option { background: var(--panel-2); }
+
+  button.btn {
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px;
+    font-family: inherit; white-space: nowrap;
+  }
+  button.btn:hover { border-color: var(--primary); }
+  button.btn.primary { background: var(--primary-dim); border-color: var(--primary-dim); color: #fff; }
+  button.btn.primary:hover { background: var(--primary); }
+  button.btn.danger { color: var(--danger); border-color: #4a2b33; }
+  button.btn.danger:hover { background: #3a2028; border-color: var(--danger); }
+  button.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px; margin-bottom: 14px;
+  }
+  .toolbar .field { display: flex; flex-direction: column; gap: 4px; }
+  .toolbar .field > span { font-size: 12px; color: var(--text-dim); }
+  .toolbar .field input, .toolbar .field select { min-width: 140px; }
+  .toolbar .grow { flex: 1; min-width: 200px; }
+
+  /* ---------- 卡片 ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px;
+  }
+  .card .label { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; }
+  .card .value { font-size: 26px; font-weight: 700; letter-spacing: .5px; }
+  .card .sub { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .card.accent-blue .value { color: var(--primary); }
+  .card.accent-green .value { color: var(--success); }
+  .card.accent-gold .value { color: var(--warn); }
+  .card.accent-purple .value { color: var(--purple); }
+  .card.accent-red .value { color: var(--danger); }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+  }
+  .panel h3 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+
+  /* ---------- 趋势图 ---------- */
+  .chart { display: flex; align-items: flex-end; gap: 10px; height: 190px; padding-top: 8px; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .chart .bars { display: flex; align-items: flex-end; gap: 4px; width: 100%; height: 150px; }
+  .chart .bar { flex: 1; border-radius: 4px 4px 0 0; min-height: 2px; transition: height .3s; }
+  .chart .bar.u { background: linear-gradient(180deg, var(--primary), #2d5fd6); }
+  .chart .bar.f { background: linear-gradient(180deg, var(--warn), #b7791f); }
+  .chart .xlabel { font-size: 11px; color: var(--text-dim); }
+  .legend { display: flex; gap: 18px; margin-bottom: 10px; font-size: 12px; color: var(--text-dim); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+
+  /* ---------- 表格 ---------- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--panel-2); color: var(--text-dim); font-weight: 600; white-space: nowrap; position: sticky; top: 0; }
+  tbody tr:hover { background: rgba(79,140,255,.06); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .muted { color: var(--text-dim); }
+  .ellipsis { max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clickable { cursor: pointer; color: var(--primary); }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; line-height: 18px; white-space: nowrap;
+  }
+  .badge.green { background: rgba(52,211,153,.15); color: var(--success); }
+  .badge.gold   { background: rgba(251,191,36,.15); color: var(--warn); }
+  .badge.red    { background: rgba(248,113,113,.15); color: var(--danger); }
+  .badge.blue   { background: rgba(79,140,255,.15); color: var(--primary); }
+  .badge.purple { background: rgba(167,139,250,.15); color: var(--purple); }
+  .badge.gray   { background: rgba(147,161,184,.15); color: var(--text-dim); }
+
+  /* ---------- 分页 ---------- */
+  .pager { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .pager .info { color: var(--text-dim); font-size: 13px; }
+
+  /* ---------- 抽屉 ---------- */
+  #drawerMask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 60; display: none;
+  }
+  #drawerMask.show { display: block; }
+  #drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(720px, 100%);
+    background: var(--bg-soft); border-left: 1px solid var(--border);
+    z-index: 61; overflow-y: auto; padding: 20px;
+    transform: translateX(100%); transition: transform .25s ease;
+  }
+  #drawer.show { transform: translateX(0); }
+  #drawer h2 { margin: 0 0 14px; font-size: 17px; display: flex; align-items: center; gap: 10px; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; font-size: 13px; margin-bottom: 18px; }
+  .kv .k { color: var(--text-dim); }
+  .section-title { font-size: 13px; font-weight: 600; margin: 18px 0 8px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .6px; }
+  .empty { color: var(--text-dim); font-size: 13px; padding: 14px; background: var(--panel); border: 1px dashed var(--border); border-radius: 8px; }
+
+  /* ---------- 提示 ---------- */
+  #toast {
+    position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
+    background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+    padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 200;
+    opacity: 0; pointer-events: none; transition: all .2s;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.error { border-color: var(--danger); color: var(--danger); }
+
+  .loading { text-align: center; padding: 40px; color: var(--text-dim); }
+  .errbox { background: rgba(248,113,113,.1); border: 1px solid #4a2b33; color: var(--danger); padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+
+  @media (max-width: 640px) {
+    nav.tabs { top: 57px; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 登录 ============ -->
+<div id="loginMask">
+  <div class="login-card">
+    <h1>Rephone 后台管理</h1>
+    <p>请输入管理令牌（configs/config.ini 的 <code>general.admin_token</code>）</p>
+    <label for="tokenInput">Admin Token</label>
+    <input type="password" id="tokenInput" placeholder="X-Admin-Token" autocomplete="off">
+    <div id="loginErr" class="errbox" style="display:none;margin-top:12px;"></div>
+    <button class="btn primary" id="loginBtn" style="width:100%;margin-top:16px;">进入后台</button>
+  </div>
+</div>
+
+<!-- ============ 主体 ============ -->
+<header>
+  <div class="logo">R</div>
+  <h1>Rephone 后台管理</h1>
+  <span class="tag" id="envTag">webrtc_db</span>
+  <div class="spacer"></div>
+  <button class="btn" id="refreshBtn">刷新</button>
+  <button class="btn" id="logoutBtn">退出</button>
+</header>
+
+<nav class="tabs">
+  <button data-view="overview" class="active">概览</button>
+  <button data-view="users">用户数据</button>
+  <button data-view="feedbacks">意见反馈</button>
+</nav>
+
+<main>
+  <div id="globalErr" class="errbox" style="display:none;"></div>
+
+  <!-- ---------- 概览 ---------- -->
+  <section class="view active" id="view-overview">
+    <div class="cards" id="statCards"></div>
+    <div class="panel">
+      <h3>近 7 天新增趋势</h3>
+      <div class="legend">
+        <span><i style="background:var(--primary)"></i>新增用户</span>
+        <span><i style="background:var(--warn)"></i>意见反馈</span>
+      </div>
+      <div class="chart" id="dailyChart"></div>
+    </div>
+    <div class="cards" id="subCards"></div>
+  </section>
+
+  <!-- ---------- 用户 ---------- -->
+  <section class="view" id="view-users">
+    <div class="toolbar">
+      <div class="field grow">
+        <span>邮箱关键字</span>
+        <input type="text" id="uKeyword" placeholder="输入邮箱模糊搜索">
+      </div>
+      <div class="field">
+        <span>状态</span>
+        <select id="uStatus">
+          <option value="">全部</option>
+          <option value="active">正常 active</option>
+          <option value="deleted">已注销 deleted</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>会员</span>
+        <select id="uVip">
+          <option value="">全部</option>
+          <option value="1">仅 VIP</option>
+          <option value="0">仅免费</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>支付渠道</span>
+        <select id="uPlatform">
+          <option value="">全部</option>
+          <option value="android">Google Play</option>
+          <option value="ios">App Store</option>
+          <option value="wechat">微信支付</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>排序</span>
+        <select id="uSort">
+          <option value="created_at">注册时间</option>
+          <option value="last_verify_at">最后校验</option>
+          <option value="expire_at">VIP 到期</option>
+          <option value="vip_level">会员等级</option>
+          <option value="email">邮箱</option>
+        </select>
+      </div>
+      <button class="btn primary" id="uSearch">查询</button>
+      <button class="btn" id="uExport">导出 CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>邮箱</th><th>状态</th><th>VIP</th><th>到期时间</th>
+            <th>订阅状态</th><th>渠道</th><th>语言</th><th>推送</th>
+            <th>设备</th><th>反馈</th><th>注册时间</th><th>最后校验</th>
+          </tr>
+        </thead>
+        <tbody id="uBody"></tbody>
+      </table>
+    </div>
+    <div id="uEmpty" class="empty" style="display:none;margin-top:14px;">没有匹配的用户</div>
+    <div class="pager">
+      <button class="btn" id="uPrev">上一页</button>
+      <span class="info" id="uInfo"></span>
+      <button class="btn" id="uNext">下一页</button>
+    </div>
+  </section>
+
+  <!-- ---------- 反馈 ---------- -->
+  <section class="view" id="view-feedbacks">
+    <div class="toolbar">
+      <div class="field grow">
+        <span>关键字（内容 / 邮箱 / 设备 / 联系方式 / IP）</span>
+        <input type="text" id="fKeyword" placeholder="模糊搜索">
+      </div>
+      <div class="field">
+        <span>开始日期</span>
+        <input type="date" id="fStart">
+      </div>
+      <div class="field">
+        <span>结束日期</span>
+        <input type="date" id="fEnd">
+      </div>
+      <button class="btn primary" id="fSearch">查询</button>
+      <button class="btn" id="fExport">导出 CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th><th>时间</th><th>邮箱</th><th>反馈内容</th>
+            <th>联系方式</th><th>设备 ID</th><th>IP</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="fBody"></tbody>
+      </table>
+    </div>
+    <div id="fEmpty" class="empty" style="display:none;margin-top:14px;">没有匹配的反馈</div>
+    <div class="pager">
+      <button class="btn" id="fPrev">上一页</button>
+      <span class="info" id="fInfo"></span>
+      <button class="btn" id="fNext">下一页</button>
+    </div>
+  </section>
+</main>
+
+<div id="drawerMask"></div>
+<aside id="drawer"></aside>
+<div id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TOKEN_KEY = 'rephone_admin_token';
+  var PAGE_SIZE = 20;
+  var token = localStorage.getItem(TOKEN_KEY) || '';
+
+  var state = {
+    view: 'overview',
+    users: { page: 1, total: 0 },
+    feedbacks: { page: 1, total: 0 }
+  };
+
+  // ---------------- 工具函数 ----------------
+  function $(id) { return document.getElementById(id); }
+
+  function toast(msg, isError) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.className = isError ? 'show error' : 'show';
+    clearTimeout(el._t);
+    el._t = setTimeout(function () { el.className = ''; }, 2600);
+  }
+
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  // 2026-10-09T12:34:56+08:00 -> 2026-10-09 12:34
+  function fmtTime(s) {
+    if (!s) return '-';
+    var d = new Date(s);
+    if (isNaN(d.getTime())) return String(s);
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function fmtNum(n) { return (n || 0).toLocaleString('en-US'); }
+
+  function showGlobalError(msg) {
+    var el = $('globalErr');
+    if (!msg) { el.style.display = 'none'; return; }
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  // ---------------- API ----------------
+  function api(path, params) {
+    var qs = [];
+    for (var k in params) {
+      if (params.hasOwnProperty(k) && params[k] !== '' && params[k] !== null && params[k] !== undefined) {
+        qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+      }
+    }
+    var url = path + (qs.length ? '?' + qs.join('&') : '');
+    return fetch(url, {
+      method: 'GET',
+      headers: { 'X-Admin-Token': token },
+      cache: 'no-store'
+    }).then(function (resp) {
+      if (resp.status === 401 || resp.status === 503) {
+        // 令牌失效或后台未启用：退回登录页
+        var msg = resp.status === 503 ? '后台管理接口未启用：请先在 config.ini 配置 general.admin_token' : '令牌无效或已失效';
+        logout(true);
+        throw new Error(msg);
+      }
+      return resp.json().then(function (body) {
+        if (!resp.ok || !body.success) throw new Error(body.message || ('HTTP ' + resp.status));
+        return body.data;
+      });
+    });
+  }
+
+  function apiPost(path, params) {
+    var qs = [];
+    for (var k in params) {
+      if (params.hasOwnProperty(k)) qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    }
+    return fetch(path + (qs.length ? '?' + qs.join('&') : ''), {
+      method: 'POST',
+      headers: { 'X-Admin-Token': token }
+    }).then(function (resp) {
+      return resp.json().then(function (body) {
+        if (!resp.ok || !body.success) throw new Error(body.message || ('HTTP ' + resp.status));
+        return body.data;
+      });
+    });
+  }
+
+  // ---------------- 登录 / 登出 ----------------
+  function logout(showMask) {
+    localStorage.removeItem(TOKEN_KEY);
+    token = '';
+    if (showMask !== false) {
+      $('loginMask').classList.remove('hidden');
+      $('tokenInput').value = '';
+      $('loginErr').style.display = 'none';
+      $('tokenInput').focus();
+    }
+  }
+
+  function tryLogin() {
+    var v = $('tokenInput').value.trim();
+    if (!v) { $('loginErr').textContent = '请输入管理令牌'; $('loginErr').style.display = 'block'; return; }
+    token = v;
+    $('loginBtn').disabled = true;
+    api('/api/admin/stats', { days: 7 }).then(function () {
+      localStorage.setItem(TOKEN_KEY, v);
+      $('loginMask').classList.add('hidden');
+      $('loginErr').style.display = 'none';
+      $('loginBtn').disabled = false;
+      loadAll();
+    }).catch(function (err) {
+      token = '';
+      $('loginBtn').disabled = false;
+      $('loginErr').textContent = err.message || '登录失败';
+      $('loginErr').style.display = 'block';
+    });
+  }
+
+  // ---------------- 概览 ----------------
+  function renderCards(host, cards) {
+    host.innerHTML = cards.map(function (c) {
+      return '<div class="card ' + (c.accent || '') + '">' +
+        '<div class="label">' + esc(c.label) + '</div>' +
+        '<div class="value">' + esc(c.value) + '</div>' +
+        (c.sub ? '<div class="sub">' + esc(c.sub) + '</div>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  function renderChart(daily) {
+    var host = $('dailyChart');
+    if (!daily || !daily.length) { host.innerHTML = '<div class="muted">暂无数据</div>'; return; }
+    var max = 1;
+    daily.forEach(function (d) { max = Math.max(max, d.users || 0, d.feedbacks || 0); });
+    host.innerHTML = daily.map(function (d) {
+      var uh = Math.round((d.users || 0) / max * 145);
+      var fh = Math.round((d.feedbacks || 0) / max * 145);
+      return '<div class="col">' +
+        '<div class="bars">' +
+          '<div class="bar u" style="height:' + Math.max(uh, 2) + 'px" title="新增用户 ' + (d.users || 0) + '"></div>' +
+          '<div class="bar f" style="height:' + Math.max(fh, 2) + 'px" title="意见反馈 ' + (d.feedbacks || 0) + '"></div>' +
+        '</div>' +
+        '<div class="xlabel">' + esc(String(d.date).slice(5)) + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  var SUB_STATE = { 0: '无/过期', 1: '生效中', 2: '宽限期', 3: '暂停' };
+
+  function loadStats() {
+    return api('/api/admin/stats', { days: 7 }).then(function (d) {
+      var u = d.users || {}, f = d.feedbacks || {}, b = d.bindings || {}, s = d.subscriptions || {};
+      renderCards($('statCards'), [
+        { label: '注册用户总数', value: fmtNum(u.total), sub: '已注销 ' + fmtNum(u.deleted), accent: 'accent-blue' },
+        { label: '活跃用户', value: fmtNum(u.active), sub: 'status = active', accent: 'accent-green' },
+        { label: 'VIP 用户', value: fmtNum(u.vip), sub: 'vip_level > 0', accent: 'accent-gold' },
+        { label: '今日新增', value: fmtNum(u.new_today), sub: '近 7 天 ' + fmtNum(u.new_7d) + ' · 近 30 天 ' + fmtNum(u.new_30d), accent: 'accent-purple' },
+        { label: '意见反馈总数', value: fmtNum(f.total), sub: '今日 ' + fmtNum(f.today) + ' · 近 7 天 ' + fmtNum(f.last_7d), accent: 'accent-blue' },
+        { label: '匿名反馈', value: fmtNum(f.anonymous), sub: '未留邮箱', accent: 'accent-gray' }
+      ]);
+      renderCards($('subCards'), [
+        { label: '设备绑定', value: fmtNum(b.total), sub: '生效 ' + fmtNum(b.active) + ' · 在线 ' + fmtNum(b.online), accent: 'accent-green' },
+        { label: '去重相机数', value: fmtNum(b.cameras), sub: '监控端账号 ' + fmtNum(b.monitors), accent: 'accent-blue' },
+        { label: '订阅记录', value: fmtNum(s.total), sub: '生效中 ' + fmtNum(s.active), accent: 'accent-gold' },
+        { label: '订阅渠道分布', value: 'A/I/W', sub: 'Google ' + fmtNum(s.android) + ' · Apple ' + fmtNum(s.ios) + ' · 微信 ' + fmtNum(s.wechat), accent: 'accent-purple' }
+      ]);
+      renderChart(d.daily);
+    });
+  }
+
+  // ---------------- 用户列表 ----------------
+  function userFilters() {
+    return {
+      keyword: $('uKeyword').value.trim(),
+      status: $('uStatus').value,
+      vip: $('uVip').value,
+      platform: $('uPlatform').value,
+      sort: $('uSort').value,
+      order: 'desc'
+    };
+  }
+
+  function loadUsers(page) {
+    var f = userFilters();
+    f.page = page || 1;
+    f.page_size = PAGE_SIZE;
+    showGlobalError('');
+    $('uBody').innerHTML = '<tr><td colspan="13" class="loading">加载中…</td></tr>';
+    return api('/api/admin/users', f).then(function (d) {
+      state.users.page = d.page;
+      state.users.total = d.total;
+      var rows = d.items || [];
+      $('uEmpty').style.display = rows.length ? 'none' : 'block';
+      $('uBody').innerHTML = rows.map(function (u) {
+        var vipBadge = u.vip_level > 0
+          ? '<span class="badge gold">VIP ' + u.vip_level + '</span>'
+          : '<span class="badge gray">免费</span>';
+        var stBadge = u.status === 'deleted'
+          ? '<span class="badge red">已注销</span>'
+          : '<span class="badge green">正常</span>';
+        var subBadge = subStateBadge(u.subscription_state);
+        var plat = platformName(u.platform);
+        return '<tr>' +
+          '<td class="mono">' + u.id + '</td>' +
+          '<td><span class="clickable" data-email="' + esc(u.email) + '">' + esc(u.email) + '</span></td>' +
+          '<td>' + stBadge + '</td>' +
+          '<td>' + vipBadge + '</td>' +
+          '<td class="mono">' + esc(u.expire_at ? fmtTime(u.expire_at) : '-') + '</td>' +
+          '<td>' + subBadge + '</td>' +
+          '<td>' + (plat ? '<span class="badge blue">' + esc(plat) + '</span>' : '<span class="muted">-</span>') + '</td>' +
+          '<td>' + esc(u.language || '-') + '</td>' +
+          '<td>' + (u.has_fcm_token ? '<span class="badge green">已绑定</span>' : '<span class="muted">未绑定</span>') + '</td>' +
+          '<td>' + fmtNum(u.device_count) + '</td>' +
+          '<td>' + fmtNum(u.feedback_count) + '</td>' +
+          '<td class="mono">' + esc(fmtTime(u.created_at)) + '</td>' +
+          '<td class="mono">' + esc(u.last_verify_at ? fmtTime(u.last_verify_at) : '-') + '</td>' +
+          '</tr>';
+      }).join('');
+      renderPager('u', d.page, d.page_size, d.total);
+    }).catch(function (e) { showGlobalError('加载用户失败：' + e.message); $('uBody').innerHTML = ''; });
+  }
+
+  function subStateBadge(v) {
+    var map = { 0: 'gray', 1: 'green', 2: 'gold', 3: 'purple' };
+    var name = SUB_STATE[v] || ('未知(' + v + ')');
+    return '<span class="badge ' + (map[v] || 'gray') + '">' + esc(name) + '</span>';
+  }
+
+  function platformName(p) {
+    if (!p) return '';
+    return ({ android: 'Google Play', ios: 'App Store', wechat: '微信支付' })[p] || p;
+  }
+
+  function renderPager(prefix, page, pageSize, total) {
+    var pages = Math.max(1, Math.ceil(total / pageSize));
+    $(prefix + 'Info').textContent = '第 ' + page + ' / ' + pages + ' 页 · 共 ' + fmtNum(total) + ' 条';
+    $(prefix + 'Prev').disabled = page <= 1;
+    $(prefix + 'Next').disabled = page >= pages;
+  }
+
+  // ---------------- 用户详情抽屉 ----------------
+  function openUserDetail(email) {
+    var drawer = $('drawer');
+    drawer.innerHTML = '<div class="loading">加载中…</div>';
+    drawer.classList.add('show');
+    $('drawerMask').classList.add('show');
+
+    api('/api/admin/user/detail', { email: email }).then(function (d) {
+      var u = d.user;
+      var html = '<h2>用户详情 <span class="tag">' + esc(u.email) + '</span></h2>';
+      html += '<div class="kv">' +
+        kv('ID', u.id) +
+        kv('状态', u.status === 'deleted' ? '已注销' : '正常') +
+        kv('VIP 等级', u.vip_level + (u.expire_at ? '（到期 ' + fmtTime(u.expire_at) + '）' : '')) +
+        kv('订阅状态', SUB_STATE[u.subscription_state] || ('未知(' + u.subscription_state + ')')) +
+        kv('支付渠道', platformName(u.platform) || '-') +
+        kv('语言', u.language || '-') +
+        kv('推送 Token', u.has_fcm_token ? '已绑定' : '未绑定') +
+        kv('注册时间', fmtTime(u.created_at)) +
+        kv('最后校验', u.last_verify_at ? fmtTime(u.last_verify_at) : '-') +
+        '</div>';
+
+      html += '<div class="section-title">设备绑定 (' + (d.bindings || []).length + ')</div>';
+      if (!d.bindings || !d.bindings.length) {
+        html += '<div class="empty">暂无绑定设备</div>';
+      } else {
+        html += '<div class="table-wrap"><table><thead><tr>' +
+          '<th>相机设备 ID</th><th>名称</th><th>位置</th><th>监控端</th><th>相机端</th><th>在线</th><th>状态</th><th>更新时间</th>' +
+          '</tr></thead><tbody>' + d.bindings.map(function (b) {
+          return '<tr>' +
+            '<td class="mono">' + esc(b.camera_device_id) + '</td>' +
+            '<td>' + esc(b.camera_name || '-') + '</td>' +
+            '<td>' + esc(b.camera_location || '-') + '</td>' +
+            '<td>' + esc(b.monitor_email) + '</td>' +
+            '<td>' + esc(b.camera_email) + '</td>' +
+            '<td>' + (b.camera_online ? '<span class="badge green">在线</span>' : '<span class="badge gray">离线</span>') + '</td>' +
+            '<td>' + esc(b.status || '-') + '</td>' +
+            '<td class="mono">' + esc(fmtTime(b.updated_at)) + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table></div>';
+      }
+
+      html += '<div class="section-title">订阅记录 (' + (d.subscriptions || []).length + ')</div>';
+      if (!d.subscriptions || !d.subscriptions.length) {
+        html += '<div class="empty">暂无订阅记录</div>';
+      } else {
+        html += '<div class="table-wrap"><table><thead><tr>' +
+          '<th>产品</th><th>套餐</th><th>渠道</th><th>状态</th><th>自动续费</th><th>购买时间</th><th>到期时间</th>' +
+          '</tr></thead><tbody>' + d.subscriptions.map(function (s) {
+          var stMap = { 0: ['red', '无效/过期'], 1: ['green', '生效中'], 2: ['gold', '待支付'], 3: ['gold', '宽限期'], 4: ['purple', '暂停'] };
+          var st = stMap[s.status] || ['gray', '未知(' + s.status + ')'];
+          return '<tr>' +
+            '<td class="mono">' + esc(s.product_id) + '</td>' +
+            '<td>' + esc(s.base_plan_id || '-') + '</td>' +
+            '<td>' + esc(platformName(s.platform) || s.platform) + '</td>' +
+            '<td><span class="badge ' + st[0] + '">' + esc(st[1]) + '</span></td>' +
+            '<td>' + (s.auto_renewing ? '是' : '否') + '</td>' +
+            '<td class="mono">' + esc(s.purchase_time ? fmtTime(s.purchase_time) : '-') + '</td>' +
+            '<td class="mono">' + esc(s.expire_time ? fmtTime(s.expire_time) : '-') + '</td>' +
+            '</tr>';
+        }).join('') + '</tbody></table></div>';
+      }
+
+      html += '<div class="section-title">历史反馈 (' + (d.feedbacks || []).length + ')</div>';
+      if (!d.feedbacks || !d.feedbacks.length) {
+        html += '<div class="empty">暂无反馈</div>';
+      } else {
+        html += d.feedbacks.map(function (f) {
+          return '<div class="panel" style="margin-bottom:8px;">' +
+            '<div class="muted" style="font-size:12px;margin-bottom:6px;">' + esc(fmtTime(f.created_at)) +
+            (f.contact ? ' · 联系方式：' + esc(f.contact) : '') + '</div>' +
+            '<div style="white-space:pre-wrap;word-break:break-word;">' + esc(f.content) + '</div>' +
+            '</div>';
+        }).join('');
+      }
+
+      html += '<button class="btn" id="closeDrawer" style="margin-top:18px;width:100%;">关闭</button>';
+      drawer.innerHTML = html;
+      $('closeDrawer').onclick = closeDrawer;
+    }).catch(function (e) {
+      drawer.innerHTML = '<h2>加载失败</h2><div class="errbox">' + esc(e.message) + '</div>' +
+        '<button class="btn" id="closeDrawer" style="margin-top:12px;width:100%;">关闭</button>';
+      $('closeDrawer').onclick = closeDrawer;
+    });
+  }
+
+  function kv(k, v) {
+    return '<div class="k">' + esc(k) + '</div><div>' + esc(v) + '</div>';
+  }
+
+  function closeDrawer() {
+    $('drawer').classList.remove('show');
+    $('drawerMask').classList.remove('show');
+  }
+
+  // ---------------- 反馈列表 ----------------
+  function feedbackFilters() {
+    return {
+      keyword: $('fKeyword').value.trim(),
+      start: $('fStart').value,
+      end: $('fEnd').value
+    };
+  }
+
+  function loadFeedbacks(page) {
+    var f = feedbackFilters();
+    f.page = page || 1;
+    f.page_size = PAGE_SIZE;
+    showGlobalError('');
+    $('fBody').innerHTML = '<tr><td colspan="8" class="loading">加载中…</td></tr>';
+    return api('/api/admin/feedbacks', f).then(function (d) {
+      state.feedbacks.page = d.page;
+      state.feedbacks.total = d.total;
+      var rows = d.items || [];
+      $('fEmpty').style.display = rows.length ? 'none' : 'block';
+      $('fBody').innerHTML = rows.map(function (r) {
+        var content = r.content || '';
+        var short = content.length > 90 ? content.slice(0, 90) + '…' : content;
+        return '<tr>' +
+          '<td class="mono">' + r.id + '</td>' +
+          '<td class="mono">' + esc(fmtTime(r.created_at)) + '</td>' +
+          '<td>' + (r.email ? esc(r.email) : '<span class="muted">匿名</span>') + '</td>' +
+          '<td><div class="ellipsis" title="' + esc(content) + '">' + esc(short) + '</div></td>' +
+          '<td>' + esc(r.contact || '-') + '</td>' +
+          '<td class="mono">' + esc(r.device_id || '-') + '</td>' +
+          '<td class="mono">' + esc(r.ip || '-') + '</td>' +
+          '<td><button class="btn danger" data-del="' + r.id + '">删除</button></td>' +
+          '</tr>';
+      }).join('');
+      renderPager('f', d.page, d.page_size, d.total);
+    }).catch(function (e) { showGlobalError('加载反馈失败：' + e.message); $('fBody').innerHTML = ''; });
+  }
+
+  function deleteFeedback(id) {
+    if (!confirm('确认删除 ID 为 ' + id + ' 的反馈？该操作不可恢复。')) return;
+    apiPost('/api/admin/feedback/delete', { id: id }).then(function () {
+      toast('已删除');
+      loadFeedbacks(state.feedbacks.page);
+    }).catch(function (e) { toast('删除失败：' + e.message, true); });
+  }
+
+  // ---------------- CSV 导出 ----------------
+  function csvCell(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+
+  function downloadCSV(filename, header, rows) {
+    var lines = [header.map(csvCell).join(',')].concat(rows.map(function (r) { return r.map(csvCell).join(','); }));
+    var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  }
+
+  function exportUsers() {
+    var f = userFilters();
+    f.page = 1;
+    f.page_size = 100;
+    api('/api/admin/users', f).then(function (d) {
+      var rows = (d.items || []).map(function (u) {
+        return [u.id, u.email, u.status, u.vip_level, u.expire_at || '', SUB_STATE[u.subscription_state] || '',
+          platformName(u.platform) || '', u.language || '', u.has_fcm_token ? 'yes' : 'no',
+          u.device_count, u.feedback_count, u.created_at, u.last_verify_at || ''];
+      });
+      downloadCSV('users_' + Date.now() + '.csv',
+        ['id', 'email', 'status', 'vip_level', 'expire_at', 'subscription_state', 'platform',
+          'language', 'fcm_token', 'device_count', 'feedback_count', 'created_at', 'last_verify_at'], rows);
+      toast('已导出前 ' + rows.length + ' 条（如需全量请缩小筛选范围）');
+    }).catch(function (e) { toast('导出失败：' + e.message, true); });
+  }
+
+  function exportFeedbacks() {
+    var f = feedbackFilters();
+    f.page = 1;
+    f.page_size = 100;
+    api('/api/admin/feedbacks', f).then(function (d) {
+      var rows = (d.items || []).map(function (r) {
+        return [r.id, r.created_at, r.email || '', r.content, r.contact || '', r.device_id || '', r.ip || '', r.user_agent || ''];
+      });
+      downloadCSV('feedbacks_' + Date.now() + '.csv',
+        ['id', 'created_at', 'email', 'content', 'contact', 'device_id', 'ip', 'user_agent'], rows);
+      toast('已导出前 ' + rows.length + ' 条（如需全量请缩小筛选范围）');
+    }).catch(function (e) { toast('导出失败：' + e.message, true); });
+  }
+
+  // ---------------- 视图切换 ----------------
+  function switchView(name) {
+    state.view = name;
+    var btns = document.querySelectorAll('nav.tabs button');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].className = btns[i].getAttribute('data-view') === name ? 'active' : '';
+    }
+    var views = document.querySelectorAll('.view');
+    for (var j = 0; j < views.length; j++) {
+      views[j].className = views[j].id === 'view-' + name ? 'view active' : 'view';
+    }
+    if (name === 'overview') loadStats().catch(function (e) { showGlobalError(e.message); });
+    if (name === 'users') loadUsers(state.users.page);
+    if (name === 'feedbacks') loadFeedbacks(state.feedbacks.page);
+  }
+
+  function loadAll() {
+    if (state.view === 'overview') loadStats().catch(function (e) { showGlobalError(e.message); });
+    else if (state.view === 'users') loadUsers(state.users.page);
+    else loadFeedbacks(state.feedbacks.page);
+  }
+
+  // ---------------- 事件绑定 ----------------
+  $('loginBtn').onclick = tryLogin;
+  $('tokenInput').onkeydown = function (e) { if (e.key === 'Enter') tryLogin(); };
+  $('logoutBtn').onclick = function () { logout(true); };
+
+  $('refreshBtn').onclick = function () { loadAll(); toast('已刷新'); };
+
+  var tabs = document.querySelectorAll('nav.tabs button');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].onclick = function () { switchView(this.getAttribute('data-view')); };
+  }
+
+  $('uSearch').onclick = function () { loadUsers(1); };
+  $('uKeyword').onkeydown = function (e) { if (e.key === 'Enter') loadUsers(1); };
+  $('uStatus').onchange = function () { loadUsers(1); };
+  $('uVip').onchange = function () { loadUsers(1); };
+  $('uPlatform').onchange = function () { loadUsers(1); };
+  $('uSort').onchange = function () { loadUsers(1); };
+  $('uPrev').onclick = function () { if (state.users.page > 1) loadUsers(state.users.page - 1); };
+  $('uNext').onclick = function () { loadUsers(state.users.page + 1); };
+  $('uExport').onclick = exportUsers;
+
+  $('fSearch').onclick = function () { loadFeedbacks(1); };
+  $('fKeyword').onkeydown = function (e) { if (e.key === 'Enter') loadFeedbacks(1); };
+  $('fPrev').onclick = function () { if (state.feedbacks.page > 1) loadFeedbacks(state.feedbacks.page - 1); };
+  $('fNext').onclick = function () { loadFeedbacks(state.feedbacks.page + 1); };
+  $('fExport').onclick = exportFeedbacks;
+
+  // 事件委托：点击邮箱打开详情、点击删除按钮
+  $('uBody').addEventListener('click', function (e) {
+    var emailEl = e.target.closest ? e.target.closest('[data-email]') : null;
+    if (emailEl) openUserDetail(emailEl.getAttribute('data-email'));
+  });
+  $('fBody').addEventListener('click', function (e) {
+    var del = e.target.closest ? e.target.closest('[data-del]') : null;
+    if (del) deleteFeedback(del.getAttribute('data-del'));
+  });
+
+  $('drawerMask').onclick = closeDrawer;
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDrawer(); });
+
+  // ---------------- 启动 ----------------
+  if (token) {
+    api('/api/admin/stats', { days: 7 }).then(function () {
+      $('loginMask').classList.add('hidden');
+      loadAll();
+    }).catch(function () {
+      logout(true);
+    });
+  } else {
+    $('tokenInput').focus();
+  }
+})();
+</script>
+</body>
+</html>

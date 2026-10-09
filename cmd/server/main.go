@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/auth"
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
@@ -189,6 +190,23 @@ func main() {
 	http.HandleFunc("/api/payment/wechat/verify", auth.AuthMiddleware(authService.HandleVerifyWechatOrder))
 	// 服务端统一定价下发，消除客户端硬编码价格
 	http.HandleFunc("/api/payment/products", authService.HandleListPaymentProducts)
+
+	// 后台管理接口（web/admin.html 使用，鉴权：X-Admin-Token）
+	adminToken := strings.TrimSpace(cfg.Section("general").Key("admin_token").String())
+	if adminToken == "" {
+		adminToken = strings.TrimSpace(os.Getenv("ADMIN_TOKEN"))
+	}
+	if adminToken == "" {
+		logger.Errorf("[admin] general.admin_token 未配置，后台管理接口已禁用（/api/admin/* 返回 503）")
+	} else {
+		auth.SetAdminToken(adminToken)
+		logger.Infof("[admin] 后台管理接口已启用，管理页面: /admin.html")
+	}
+	http.HandleFunc("/api/admin/stats", auth.AdminMiddleware(authService.HandleAdminStats))
+	http.HandleFunc("/api/admin/users", auth.AdminMiddleware(authService.HandleAdminUsers))
+	http.HandleFunc("/api/admin/user/detail", auth.AdminMiddleware(authService.HandleAdminUserDetail))
+	http.HandleFunc("/api/admin/feedbacks", auth.AdminMiddleware(authService.HandleAdminFeedbacks))
+	http.HandleFunc("/api/admin/feedback/delete", auth.AdminMiddleware(authService.HandleAdminDeleteFeedback))
 
 	sslCert := cfg.Section("general").Key("cert").String()
 	sslKey := cfg.Section("general").Key("key").String()

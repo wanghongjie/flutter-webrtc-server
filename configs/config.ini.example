@@ -16,6 +16,12 @@ bind=0.0.0.0
 port=8086
 html_root=web
 
+; 后台管理接口令牌（web/admin.html 登录后使用）。
+; 也可通过环境变量 ADMIN_TOKEN 设置（config 优先）。
+; 留空 = 后台管理接口整体关闭（/api/admin/* 返回 503）。
+; 强烈建议改成足够长的随机串，并只允许内网/VPN 访问 /admin.html。
+admin_token=<change-me-to-a-long-random-string>
+
 [turn]
 public_ip=47.251.242.213
 port=19302
