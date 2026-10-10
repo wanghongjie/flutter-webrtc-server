@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <title>使用手册：注册登录与绑定相机</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #f6f7f9;
+        color: #1f2430;
+        line-height: 1.75;
+        font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1220; color: #e6e9ef; }
+        .topbar { background: rgba(11, 18, 32, 0.92); border-bottom-color: rgba(148, 163, 184, 0.18); }
+        .card { background: #111a2b; }
+        .toc { background: #111a2b; }
+        .callout { background: #16304a; border-left-color: #38bdf8; }
+        .note { background: #1a2436; }
+        table th { background: #16203a; }
+        code { background: rgba(148, 163, 184, 0.18); }
+      }
+      .safe-area-top { height: env(safe-area-inset-top); }
+      .safe-area-bottom { height: env(safe-area-inset-bottom); }
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        height: 52px; padding: 0 16px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .topbar__title { font-size: 17px; font-weight: 600; }
+      .container { max-width: 820px; margin: 0 auto; padding: 16px 18px 48px; }
+      .card {
+        background: #fff; border-radius: 14px; padding: 18px 18px 8px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      }
+      .doc-head__title { font-size: 22px; font-weight: 700; line-height: 1.4; }
+      .doc-head__meta { margin-top: 8px; font-size: 13px; color: #6b7280; }
+      .doc-head__meta .dot { margin: 0 6px; }
+      .callout {
+        margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+        background: #eaf3ff; border-left: 4px solid #2563eb; font-size: 14.5px;
+      }
+      .callout__title { font-weight: 700; margin-bottom: 4px; }
+      .toc { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fff; font-size: 15px; }
+      .toc__title { font-weight: 700; margin-bottom: 6px; }
+      .toc a { display: block; padding: 3px 0; color: #2563eb; text-decoration: none; }
+      .toc a.toc__sub { padding-left: 16px; font-size: 14px; color: #4b5563; }
+      .doc { margin-top: 18px; }
+      .doc h2 { font-size: 19px; margin: 30px 0 10px; padding-left: 10px; border-left: 4px solid #2563eb; line-height: 1.4; }
+      .doc h3 { font-size: 16.5px; margin: 20px 0 8px; }
+      .doc p { margin: 8px 0; }
+      .doc ul, .doc ol { margin: 8px 0; padding-left: 22px; }
+      .doc li { margin: 5px 0; }
+      .doc b { font-weight: 700; }
+      .note { margin: 12px 0; padding: 12px 14px; border-radius: 10px; background: #f3f4f6; font-size: 14.5px; }
+      .note__title { font-weight: 700; margin-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+      table th, table td { border: 1px solid rgba(148, 163, 184, 0.35); padding: 8px 10px; text-align: left; vertical-align: top; }
+      table th { background: #f3f4f6; font-weight: 600; }
+      code {
+        padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, 0.07);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px;
+      }
+      .steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .steps li { position: relative; padding-left: 30px; margin: 8px 0; }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 2px;
+        width: 21px; height: 21px; border-radius: 50%;
+        background: #2563eb; color: #fff; font-size: 12.5px;
+        display: flex; align-items: center; justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="safe-area-top"></div>
+    <header class="topbar topbar--sticky">
+      <div class="topbar__title">使用手册：注册登录与绑定相机</div>
+    </header>
+
+    <main class="container container--doc">
+      <section class="card doc-head">
+        <div class="doc-head__title">RePhone Security 快速上手（国内版）</div>
+        <div class="doc-head__meta">
+          <span>更新日期：<b>2026-10-10</b></span>
+          <span class="dot">·</span>
+          <span>适用版本：<b>国内版（微信支付 / 安卓）</b></span>
+        </div>
+        <div class="callout">
+          <div class="callout__title">两部手机，两种角色</div>
+          <div>
+            <b>监控端</b>：您日常使用的手机，<b>需要用邮箱注册登录</b>，用来随时查看画面。<br />
+            <b>相机端</b>：那台闲置的旧手机，放在需要监控的位置，<b>不需要注册、不需要登录</b>，
+            扫一下监控端的二维码即可完成绑定。
+          </div>
+        </div>
+      </section>
+
+      <aside class="toc" aria-label="目录">
+        <div class="toc__title">目录</div>
+        <nav class="toc__nav" id="toc"></nav>
+      </aside>
+
+      <article class="doc card" id="doc">
+        <h2>一、注册账号（监控端）</h2>
+        <ol class="steps">
+          <li>打开 RePhone Security，勾选同意《服务条款》《隐私政策》后，点击<b>「邮箱登录 / 注册」</b>。</li>
+          <li>输入您的<b>邮箱地址</b>（需包含 <code>@</code> 和域名，如 <code>name@example.com</code>），点<b>「下一步」</b>。</li>
+          <li>
+            系统会检测该邮箱是否已注册：
+            <ul>
+              <li><b>未注册</b> → 给您发送 <b>6 位数字验证码</b>（有效期约 10 分钟）；</li>
+              <li><b>已注册</b> → 直接进入密码登录页。</li>
+            </ul>
+          </li>
+          <li>填入收到的验证码，进入设置密码页面。</li>
+          <li>设置密码：<b>至少 8 位</b>，且必须<b>同时包含字母和数字</b>；再次输入确认后提交，即注册成功。</li>
+        </ol>
+        <div class="note">
+          <div class="note__title">收不到验证码？</div>
+          ① 检查<b>垃圾邮件 / 广告邮件</b>文件夹；② 确认邮箱地址没有输错；
+          ③ 验证码 10 分钟内有效，超时请返回重新获取；④ 部分企业邮箱会拦截外部邮件，建议改用个人邮箱。
+        </div>
+
+        <h2>二、登录与密码管理</h2>
+        <h3>2.1 登录</h3>
+        <p>在登录页输入<b>注册邮箱 + 密码</b>即可登录，登录状态会保留，下次打开 App 自动进入。</p>
+
+        <h3>2.2 忘记密码</h3>
+        <ol class="steps">
+          <li>登录页右下角点<b>「忘记密码？」</b>；</li>
+          <li>输入注册邮箱 → 获取验证码；</li>
+          <li>填写验证码 + 新密码（≥8 位，含字母和数字）→ 提交；</li>
+          <li>返回登录页用新密码登录。</li>
+        </ol>
+
+        <h3>2.3 修改密码</h3>
+        <p>
+          登录后：<b>我的 → 通用设置 → 重置密码</b>，输入<b>原密码 + 新密码 + 确认新密码</b>即可。
+          （同页面还可设置语言、管理权限、注销账号、退出登录。）
+        </p>
+
+        <h2>三、绑定相机（核心步骤）</h2>
+        <p>准备两部手机：<b>A = 监控端</b>（已登录）、<b>B = 相机端</b>（闲置手机，装好 App）。</p>
+
+        <h3>3.1 在监控端（A）生成二维码</h3>
+        <ol class="steps">
+          <li>用邮箱登录 A 手机，进入底部<b>「相机」</b>列表页；</li>
+          <li>点击右下角 <b>+</b> 按钮；</li>
+          <li>页面会显示一个<b>二维码</b>，并标注「监控端邮箱」，保持该页面不要退出，等待相机端扫描。</li>
+        </ol>
+
+        <h3>3.2 在相机端（B）扫描绑定</h3>
+        <ol class="steps">
+          <li>在 B 手机打开 App，在启动页点击<b>「扫码绑定」</b>（需允许使用相机权限）；</li>
+          <li>扫描 A 手机上显示的二维码；</li>
+          <li>B 手机提示<b>绑定成功</b>后即进入相机端界面，顶部显示<b>「已连接服务器 (ID: xxxx)」</b>；</li>
+          <li>此时 A 手机的相机列表会在几秒内<b>自动出现这台新相机</b>，点进去即可观看实时画面。</li>
+        </ol>
+        <div class="note">
+          <div class="note__title">扫描时提示「二维码格式不正确」？</div>
+          相机端只识别 RePhone Security 生成的<b>邮箱二维码</b>（内容是一个邮箱地址）。
+          请确认扫的是监控端「相机 → +」页面里的二维码，而不是其它二维码。
+        </div>
+
+        <h3>3.3 绑定后要做的事</h3>
+        <ul>
+          <li><b>授予权限</b>：相机、麦克风、通知权限都要允许，否则无法采集画面/声音。</li>
+          <li><b>保持在线</b>：按《常见问题：让相机端一直在线》关闭电池优化、允许后台运行（见同目录指引）。</li>
+          <li><b>改名 / 改位置</b>：监控端相机列表 → 该设备<b>「设置」</b>→ 修改名称与位置（如「客厅」「门口」）。</li>
+          <li><b>删除设备</b>：同一设置页可删除绑定；删除后该相机端需重新扫码绑定。</li>
+        </ul>
+
+        <h2>四、两台手机之间的角色切换</h2>
+        <p>同一个 App 可以通过<b>左上角角色菜单</b>在「监控端 / 相机端」之间切换：</p>
+        <ul>
+          <li>切换到<b>相机端</b>：会<b>退出当前登录</b>，提示「请扫监控端的二维码进行绑定」；</li>
+          <li>切换到<b>监控端</b>：需要用<b>邮箱登录</b>。</li>
+        </ul>
+        <p>建议：<b>闲置手机固定当作相机端</b>，不要频繁切换，避免重复绑定。</p>
+
+        <h2>五、可以绑定多台相机吗？</h2>
+        <p>
+          可以。在监控端重复「第三节」的步骤即可绑定多台相机，
+          列表会显示每台设备的<b>在线状态、名称/位置、最后活跃时间</b>，并可对每台单独<b>回看</b>或<b>设置</b>。
+        </p>
+
+        <h2>六、常见问题排查</h2>
+        <table>
+          <tr><th>现象</th><th>原因与处理</th></tr>
+          <tr>
+            <td>监控端列表里相机一直「离线」</td>
+            <td>相机端后台被系统冻结。请按《常见问题：让相机端一直在线》完成电池优化与后台设置，并保持相机端 App 在前台/通知栏常驻。</td>
+          </tr>
+          <tr>
+            <td>能看到设备但画面黑屏 / 加载很久</td>
+            <td>① 检查相机端是否被遮挡或摄像头被其它应用占用；② 两端网络是否稳定；③ 重启相机端 App 后重试。</td>
+          </tr>
+          <tr>
+            <td>扫码后提示绑定失败</td>
+            <td>确认监控端账号已登录、网络正常；二维码页面停留过久可返回重新生成。</td>
+          </tr>
+          <tr>
+            <td>换手机后设备不见了</td>
+            <td>用<b>同一个邮箱</b>在新手机登录监控端，绑定关系会随账号恢复；相机端需重新扫码绑定一次。</td>
+          </tr>
+          <tr>
+            <td>想让别人也看这台相机</td>
+            <td>目前绑定基于账号，可在对方的相机端扫码绑定同一个监控端邮箱。</td>
+          </tr>
+        </table>
+
+        <h2>七、联系我们</h2>
+        <p>
+          使用中有任何问题，可通过 App 内<b>「我的 → 帮助中心」</b>提交反馈（可留下微信/手机号便于回访），
+          或发送邮件至客服邮箱 <code>dahongwudi123@gmail.com</code>。
+        </p>
+      </article>
+    </main>
+
+    <div class="safe-area-bottom"></div>
+    <script>
+      (function () {
+        var doc = document.getElementById("doc");
+        var toc = document.getElementById("toc");
+        if (!doc || !toc) return;
+        var nodes = doc.querySelectorAll("h2, h3");
+        if (!nodes.length) return;
+        var slugCount = {};
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var text = (el.textContent || "").trim();
+          var base = "sec-" + (i + 1);
+          var slug = base;
+          if (slugCount[base]) slug = base + "-" + slugCount[base];
+          slugCount[base] = (slugCount[base] || 0) + 1;
+          if (!el.id) el.id = slug;
+          var a = document.createElement("a");
+          a.href = "#" + el.id;
+          a.textContent = text;
+          if (el.tagName.toLowerCase() === "h3") a.className = "toc__sub";
+          toc.appendChild(a);
+        }
+      })();
+    </script>
+  </body>
+</html>

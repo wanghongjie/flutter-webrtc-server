@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <title>User Guide: Sign Up, Sign In &amp; Bind a Camera</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: #f6f7f9; color: #1f2430; line-height: 1.75; font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1220; color: #e6e9ef; }
+        .topbar { background: rgba(11, 18, 32, 0.92); border-bottom-color: rgba(148, 163, 184, 0.18); }
+        .card { background: #111a2b; }
+        .toc { background: #111a2b; }
+        .callout { background: #16304a; border-left-color: #38bdf8; }
+        .note { background: #1a2436; }
+        table th { background: #16203a; }
+        code { background: rgba(148, 163, 184, 0.18); }
+      }
+      .safe-area-top { height: env(safe-area-inset-top); }
+      .safe-area-bottom { height: env(safe-area-inset-bottom); }
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        height: 52px; padding: 0 16px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .topbar__title { font-size: 17px; font-weight: 600; }
+      .container { max-width: 820px; margin: 0 auto; padding: 16px 18px 48px; }
+      .card { background: #fff; border-radius: 14px; padding: 18px 18px 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
+      .doc-head__title { font-size: 22px; font-weight: 700; line-height: 1.4; }
+      .doc-head__meta { margin-top: 8px; font-size: 13px; color: #6b7280; }
+      .doc-head__meta .dot { margin: 0 6px; }
+      .callout { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #eaf3ff; border-left: 4px solid #2563eb; font-size: 14.5px; }
+      .callout__title { font-weight: 700; margin-bottom: 4px; }
+      .toc { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fff; font-size: 15px; }
+      .toc__title { font-weight: 700; margin-bottom: 6px; }
+      .toc a { display: block; padding: 3px 0; color: #2563eb; text-decoration: none; }
+      .toc a.toc__sub { padding-left: 16px; font-size: 14px; color: #4b5563; }
+      .doc { margin-top: 18px; }
+      .doc h2 { font-size: 19px; margin: 30px 0 10px; padding-left: 10px; border-left: 4px solid #2563eb; line-height: 1.4; }
+      .doc h3 { font-size: 16.5px; margin: 20px 0 8px; }
+      .doc p { margin: 8px 0; }
+      .doc ul, .doc ol { margin: 8px 0; padding-left: 22px; }
+      .doc li { margin: 5px 0; }
+      .doc b { font-weight: 700; }
+      .note { margin: 12px 0; padding: 12px 14px; border-radius: 10px; background: #f3f4f6; font-size: 14.5px; }
+      .note__title { font-weight: 700; margin-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+      table th, table td { border: 1px solid rgba(148, 163, 184, 0.35); padding: 8px 10px; text-align: left; vertical-align: top; }
+      table th { background: #f3f4f6; font-weight: 600; }
+      code { padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, 0.07); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; }
+      .steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .steps li { position: relative; padding-left: 30px; margin: 8px 0; }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 2px;
+        width: 21px; height: 21px; border-radius: 50%;
+        background: #2563eb; color: #fff; font-size: 12.5px;
+        display: flex; align-items: center; justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="safe-area-top"></div>
+    <header class="topbar topbar--sticky">
+      <div class="topbar__title">User Guide: Sign Up, Sign In &amp; Bind a Camera</div>
+    </header>
+
+    <main class="container container--doc">
+      <section class="card doc-head">
+        <div class="doc-head__title">Getting Started with RePhone Security (International)</div>
+        <div class="doc-head__meta">
+          <span>Last updated: <b>2026-10-10</b></span>
+          <span class="dot">·</span>
+          <span>Edition: <b>International (App Store / Google Play)</b></span>
+        </div>
+        <div class="callout">
+          <div class="callout__title">Two phones, two roles</div>
+          <div>
+            <b>Monitor</b>: the phone you use every day. It <b>requires an email sign-up</b> and is used
+            to watch the live view.<br />
+            <b>Camera</b>: the spare phone you place where you want monitoring. It needs
+            <b>no sign-up and no sign-in</b> — just scan the QR code shown by the monitor.
+          </div>
+        </div>
+      </section>
+
+      <aside class="toc" aria-label="Table of contents">
+        <div class="toc__title">Contents</div>
+        <nav class="toc__nav" id="toc"></nav>
+      </aside>
+
+      <article class="doc card" id="doc">
+        <h2>1. Create an account (monitor phone)</h2>
+        <ol class="steps">
+          <li>Open RePhone Security, accept the Terms and Privacy Policy, then tap <b>Sign in with email</b>.</li>
+          <li>Enter your <b>email address</b> (e.g. <code>name@example.com</code>) and tap <b>Next</b>.</li>
+          <li>
+            We check whether the email is registered:
+            <ul>
+              <li><b>Not registered</b> → a <b>6-digit verification code</b> is sent (valid for about 10 minutes);</li>
+              <li><b>Already registered</b> → you go straight to the password sign-in screen.</li>
+            </ul>
+          </li>
+          <li>Enter the code you received.</li>
+          <li>Set a password: <b>at least 8 characters</b>, containing <b>both letters and numbers</b>; confirm it and submit.</li>
+        </ol>
+        <div class="note">
+          <div class="note__title">No verification code?</div>
+          Check your <b>spam / promotions</b> folder · make sure the address is typed correctly ·
+          the code expires after 10 minutes (request a new one) · some corporate mail servers block
+          external mail, so a personal address works better.
+        </div>
+
+        <h2>2. Sign in and password management</h2>
+        <h3>2.1 Sign in</h3>
+        <p>Enter your <b>email + password</b>. Your session is kept, so the app opens signed in next time.</p>
+
+        <h3>2.2 Forgot password</h3>
+        <ol class="steps">
+          <li>Tap <b>Forgot password?</b> on the sign-in screen;</li>
+          <li>Enter your registered email and request a code;</li>
+          <li>Enter the code plus a new password (≥ 8 characters, letters + numbers);</li>
+          <li>Sign in with the new password.</li>
+        </ol>
+
+        <h3>2.3 Change password</h3>
+        <p>
+          <b>Profile → General settings → Reset password</b>: enter your
+          <b>current password + new password + confirmation</b>.
+          The same page also holds language, permissions, account deletion and sign out.
+        </p>
+
+        <h2>3. Bind a camera (the main step)</h2>
+        <p>Prepare two phones: <b>A = monitor</b> (signed in) and <b>B = camera</b> (spare phone with the app installed).</p>
+
+        <h3>3.1 Show the QR code on the monitor (A)</h3>
+        <ol class="steps">
+          <li>Sign in on phone A and open the <b>Cameras</b> tab;</li>
+          <li>Tap the <b>+</b> button at the bottom right;</li>
+          <li>A <b>QR code</b> with your monitor email appears — leave this screen open.</li>
+        </ol>
+
+        <h3>3.2 Scan it with the camera phone (B)</h3>
+        <ol class="steps">
+          <li>Open the app on phone B and tap <b>Bind by scanning QR code</b> (allow the camera permission);</li>
+          <li>Scan the QR code displayed on phone A;</li>
+          <li>Phone B shows <b>binding succeeded</b> and enters camera mode, displaying
+            <i>"Connected to server (ID: …)"</i>;</li>
+          <li>Within a few seconds the new camera appears automatically in the list on phone A — tap it to watch live.</li>
+        </ol>
+        <div class="note">
+          <div class="note__title">"Invalid QR format"?</div>
+          The camera phone only accepts the <b>RePhone QR code that contains an email address</b>
+          (from Cameras → + ). Any other QR code will be rejected.
+        </div>
+
+        <h3>3.3 After binding</h3>
+        <ul>
+          <li><b>Grant permissions</b>: Camera, Microphone and Notifications, otherwise capture will not work.</li>
+          <li><b>Keep it online</b>: follow <i>FAQ: Keeping the Camera Phone Online</i> (disable battery optimization, allow background activity).</li>
+          <li><b>Rename / set location</b>: in the camera list → <b>Settings</b> → change name and location (e.g. "Living room").</li>
+          <li><b>Remove a device</b>: the same settings page can delete the binding; the camera phone then has to scan again.</li>
+        </ul>
+
+        <h2>4. Switching roles on a phone</h2>
+        <p>Use the <b>role menu at the top-left</b> to switch between monitor and camera:</p>
+        <ul>
+          <li>Switching to <b>camera</b> <b>signs you out</b> and asks you to scan the monitor's QR code;</li>
+          <li>Switching to <b>monitor</b> requires signing in with your email.</li>
+        </ul>
+        <p>Recommendation: leave the spare phone permanently in camera mode.</p>
+
+        <h2>5. Can I bind several cameras?</h2>
+        <p>
+          Yes. Repeat section 3 for each camera. The list shows each device's
+          <b>online status, name / location and last-seen time</b>, with per-device
+          <b>playback</b> and <b>settings</b>.
+        </p>
+
+        <h2>6. Troubleshooting</h2>
+        <table>
+          <tr><th>Symptom</th><th>Cause &amp; fix</th></tr>
+          <tr>
+            <td>Camera always offline</td>
+            <td>Its background was frozen by the system. Follow the keep-alive FAQ (battery optimization + background activity) and keep the app in the foreground with its notification visible.</td>
+          </tr>
+          <tr>
+            <td>Device visible but the picture is black or never loads</td>
+            <td>Check that the lens is not covered and no other app is using the camera; check both networks; restart the camera app.</td>
+          </tr>
+          <tr>
+            <td>Binding failed after scanning</td>
+            <td>Make sure the monitor is signed in and online; go back and generate the QR code again.</td>
+          </tr>
+          <tr>
+            <td>Devices disappeared on a new phone</td>
+            <td>Sign in with the <b>same email</b> — bindings follow the account. The camera phone needs to scan once again.</td>
+          </tr>
+          <tr>
+            <td>Let someone else watch the same camera</td>
+            <td>Bindings are per account: their camera phone can scan the QR code of the same monitor email.</td>
+          </tr>
+        </table>
+
+        <h2>7. Contact us</h2>
+        <p>
+          Use <b>Profile → Help center</b> in the app to send feedback (you can leave a contact for a reply),
+          or email <code>dahongwudi123@gmail.com</code>.
+        </p>
+      </article>
+    </main>
+
+    <div class="safe-area-bottom"></div>
+    <script>
+      (function () {
+        var doc = document.getElementById("doc");
+        var toc = document.getElementById("toc");
+        if (!doc || !toc) return;
+        var nodes = doc.querySelectorAll("h2, h3");
+        if (!nodes.length) return;
+        var slugCount = {};
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var text = (el.textContent || "").trim();
+          var base = "sec-" + (i + 1);
+          var slug = base;
+          if (slugCount[base]) slug = base + "-" + slugCount[base];
+          slugCount[base] = (slugCount[base] || 0) + 1;
+          if (!el.id) el.id = slug;
+          var a = document.createElement("a");
+          a.href = "#" + el.id;
+          a.textContent = text;
+          if (el.tagName.toLowerCase() === "h3") a.className = "toc__sub";
+          toc.appendChild(a);
+        }
+      })();
+    </script>
+  </body>
+</html>

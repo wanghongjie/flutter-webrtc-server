@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <title>常见问题：如何让相机端一直在线</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #f6f7f9; color: #1f2430; line-height: 1.75; font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1220; color: #e6e9ef; }
+        .topbar { background: rgba(11, 18, 32, 0.92); border-bottom-color: rgba(148, 163, 184, 0.18); }
+        .card { background: #111a2b; }
+        .toc { background: #111a2b; }
+        .callout { background: #16304a; border-left-color: #38bdf8; }
+        .note { background: #1a2436; }
+        table th { background: #16203a; }
+        code { background: rgba(148, 163, 184, 0.18); }
+      }
+      .safe-area-top { height: env(safe-area-inset-top); }
+      .safe-area-bottom { height: env(safe-area-inset-bottom); }
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        height: 52px; padding: 0 16px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .topbar__title { font-size: 17px; font-weight: 600; }
+      .container { max-width: 820px; margin: 0 auto; padding: 16px 18px 48px; }
+      .card { background: #fff; border-radius: 14px; padding: 18px 18px 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); }
+      .doc-head__title { font-size: 22px; font-weight: 700; line-height: 1.4; }
+      .doc-head__meta { margin-top: 8px; font-size: 13px; color: #6b7280; }
+      .doc-head__meta .dot { margin: 0 6px; }
+      .callout { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: #eaf3ff; border-left: 4px solid #2563eb; font-size: 14.5px; }
+      .callout__title { font-weight: 700; margin-bottom: 4px; }
+      .toc { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fff; font-size: 15px; }
+      .toc__title { font-weight: 700; margin-bottom: 6px; }
+      .toc a { display: block; padding: 3px 0; color: #2563eb; text-decoration: none; }
+      .toc a.toc__sub { padding-left: 16px; font-size: 14px; color: #4b5563; }
+      .doc { margin-top: 18px; }
+      .doc h2 { font-size: 19px; margin: 30px 0 10px; padding-left: 10px; border-left: 4px solid #2563eb; line-height: 1.4; }
+      .doc h3 { font-size: 16.5px; margin: 20px 0 8px; }
+      .doc p { margin: 8px 0; }
+      .doc ul, .doc ol { margin: 8px 0; padding-left: 22px; }
+      .doc li { margin: 5px 0; }
+      .doc b { font-weight: 700; }
+      .note { margin: 12px 0; padding: 12px 14px; border-radius: 10px; background: #f3f4f6; font-size: 14.5px; }
+      .note__title { font-weight: 700; margin-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+      table th, table td { border: 1px solid rgba(148, 163, 184, 0.35); padding: 8px 10px; text-align: left; vertical-align: top; }
+      table th { background: #f3f4f6; font-weight: 600; }
+      code { padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, 0.07); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; }
+      .steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .steps li { position: relative; padding-left: 30px; margin: 8px 0; }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 2px;
+        width: 21px; height: 21px; border-radius: 50%;
+        background: #2563eb; color: #fff; font-size: 12.5px;
+        display: flex; align-items: center; justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="safe-area-top"></div>
+    <header class="topbar topbar--sticky">
+      <div class="topbar__title">常见问题：让相机端一直在线</div>
+    </header>
+
+    <main class="container container--doc">
+      <section class="card doc-head">
+        <div class="doc-head__title">RePhone Security：自启动 / 后台运行 / 电池优化设置指引（国际版）</div>
+        <div class="doc-head__meta">
+          <span>更新日期：<b>2026-10-10</b></span>
+          <span class="dot">·</span>
+          <span>适用：<b>相机端手机（Android / iOS）</b></span>
+        </div>
+        <div class="callout">
+          <div class="callout__title">为什么要做这些设置？</div>
+          <div>
+            RePhone Security 把一部闲置手机变成摄像头。为了省电，安卓系统默认会在锁屏一段时间后
+            <b>冻结或杀掉后台应用</b>，导致监控端连不上相机。做好这 <b>3 件事</b>即可长期稳定在线：
+            <b>① 关闭电池优化</b>、<b>② 允许后台运行/自启动</b>、<b>③ 开启通知权限</b>（保持前台服务常驻）。
+          </div>
+        </div>
+      </section>
+
+      <aside class="toc" aria-label="目录">
+        <div class="toc__title">目录</div>
+        <nav class="toc__nav" id="toc"></nav>
+      </aside>
+
+      <article class="doc card" id="doc">
+        <h2>一、先做这 3 步（所有安卓手机通用）</h2>
+        <ol class="steps">
+          <li>
+            <b>关闭电池优化</b>：首次进入相机端时，App 会自动弹出系统的电池优化授权页，请选择
+            <b>「允许 / 不优化」</b>。若当时点了拒绝：<b>设置 → 应用 → RePhone Security → 电池</b> →
+            选择 <b>「不受限制 / 不优化」</b>。
+          </li>
+          <li>
+            <b>开启通知权限</b>：相机端依靠「常驻通知」保持前台服务。若关闭通知权限，App 会提示
+            <b>「需要通知权限以保持相机在后台运行」</b>，请到
+            <b>设置 → 应用 → RePhone Security → 通知</b> 打开。
+          </li>
+          <li>
+            <b>允许后台运行 / 自启动</b>：<b>设置 → 应用 → RePhone Security → 移动数据与 WLAN</b> →
+            打开<b>后台数据</b>与<b>不限流量使用</b>；并在<b>最近任务</b>界面长按应用卡片选择<b>「锁定」</b>，
+            防止一键清理时被清掉。
+          </li>
+        </ol>
+        <div class="note">
+          <div class="note__title">怎么确认设置成功了？</div>
+          相机端提示<b>「电池优化已关闭，运行状态良好」</b>，且通知栏常驻 <b>「相机端运行中」</b>。
+          若提示<b>「建议在设置中关闭电池优化以保证连接稳定」</b>，说明第 1 步还没生效。
+        </div>
+
+        <h2>二、各品牌手机的具体路径（Android）</h2>
+        <p>不同系统版本菜单名称略有差异，可在设置中搜索「电池优化」「后台」「自启动」等关键词。</p>
+        <table>
+          <tr><th>品牌 / 系统</th><th>操作路径</th></tr>
+          <tr>
+            <td>Google Pixel（原生 Android）</td>
+            <td>
+              设置 → 应用 → RePhone Security → <b>电池</b> → <b>不受限制</b>；<br />
+              设置 → 电池 → 关闭<b>省电模式</b>与<b>自适应电池</b>对该应用的限制。
+            </td>
+          </tr>
+          <tr>
+            <td>三星（One UI）</td>
+            <td>
+              设置 → <b>电池与设备维护</b> → 电池 → <b>后台使用限制</b> → 把本应用加入
+              <b>「从不休眠的应用」</b>，并关闭「让未使用的应用进入休眠」；<br />
+              设置 → 应用程序 → RePhone Security → 电池 → <b>不受限制</b>。
+            </td>
+          </tr>
+          <tr>
+            <td>小米 / Redmi / POCO（MIUI、HyperOS 国际版）</td>
+            <td>
+              设置 → 应用 → 管理应用 → RePhone Security → 打开<b>自启动</b>；<br />
+              同一页面 → <b>省电策略</b> → <b>无限制</b>；<br />
+              安全中心 → 电池 → 关闭<b>省电模式</b>，并把应用从清理名单中移除。
+            </td>
+          </tr>
+          <tr>
+            <td>OnePlus（OxygenOS）</td>
+            <td>
+              设置 → 应用 → RePhone Security → 打开<b>允许后台运行</b>（或在「电池优化」中选择<b>不优化</b>）；<br />
+              设置 → 电池 → 关闭<b>省电模式</b>与<b>睡眠待机优化</b>。
+            </td>
+          </tr>
+          <tr>
+            <td>OPPO / Realme（ColorOS）</td>
+            <td>
+              设置 → 应用 → 应用管理 → RePhone Security → 打开<b>允许后台运行</b>、<b>允许自启动</b>、
+              <b>允许关联启动</b>；<br />
+              设置 → 电池 → <b>应用耗电管理</b> → 允许完全后台行为。
+            </td>
+          </tr>
+          <tr>
+            <td>Motorola（My UX）</td>
+            <td>
+              设置 → 应用 → RePhone Security → <b>电池</b> → <b>不受限制</b>；<br />
+              设置 → 电池 → 关闭<b>省电模式</b>及自适应性能限制。
+            </td>
+          </tr>
+          <tr>
+            <td>Sony Xperia</td>
+            <td>
+              设置 → 应用 → RePhone Security → <b>电池</b> → <b>不优化</b>；<br />
+              设置 → 电池 → <b>STAMINA 模式</b> → 把本应用加入例外。
+            </td>
+          </tr>
+          <tr>
+            <td>Nothing Phone / 华硕 / 华为海外版（EMUI）</td>
+            <td>
+              设置 → 应用 → RePhone Security → 电池 → <b>不受限制 / 不优化</b>；<br />
+              如有<b>自启动</b>开关请打开，并关闭系统省电模式。
+            </td>
+          </tr>
+        </table>
+
+        <h2>三、网络、供电与使用习惯</h2>
+        <ul>
+          <li><b>长期插电</b>：低电量会触发系统更严格的限制。</li>
+          <li><b>保持 Wi-Fi 常开</b>：设置 → 网络 → Wi-Fi → 高级 → <b>休眠时保持 Wi-Fi 连接 → 始终</b>。</li>
+          <li><b>关闭「锁屏断网」</b>类选项（部分 ROM 有）。</li>
+          <li><b>不要上滑杀掉 App</b>，改为在最近任务中锁定。</li>
+          <li><b>熄屏模式</b>：使用相机端页面的「熄屏模式」按钮，在屏幕熄灭时继续采集以省电。</li>
+          <li><b>放置位置</b>：通风散热良好、Wi-Fi 信号稳定的地方。</li>
+        </ul>
+
+        <h2>四、iPhone（iOS）做相机端</h2>
+        <ul>
+          <li><b>关闭低电量模式</b>：设置 → 电池 → 低电量模式。</li>
+          <li><b>开启后台应用刷新</b>：设置 → 通用 → 后台 App 刷新。</li>
+          <li><b>建议接电源</b>：iOS 在使用电池时会更积极地暂停后台任务。</li>
+          <li><b>锁屏会暂停采集</b>：iPhone 锁屏后系统会限制摄像头，App 会提示
+            <b>「锁屏后将无法正常采集视频」</b>。请使用相机端的<b>「熄屏模式」</b>，它会阻止自动锁屏以保持采集。</li>
+          <li><b>不要在多任务界面上滑关闭 App</b>。</li>
+          <li>授予<b>相机、麦克风、通知</b>权限。</li>
+        </ul>
+
+        <h2>五、仍然掉线时的自检清单</h2>
+        <ol class="steps">
+          <li>监控端列表显示<b>离线</b> → 到相机端手机上确认 App 是否仍在前台、通知栏「相机端运行中」是否还在。</li>
+          <li>相机端显示<b>「已连接服务器 (ID: xxxx)」</b>但监控端连不上 → 后台被冻结，回到本页 §1、§2 检查。</li>
+          <li>路由器重启或切换 Wi-Fi 后掉线 → 重启相机端 App，会自动重连。</li>
+          <li>只在夜间掉线 → 多为系统夜间清理 / 定时省电策略，检查相关设置。</li>
+          <li>仍不稳定 → 把<b>手机品牌型号 + 系统版本 + 掉线时间点</b>发送至
+            <code>dahongwudi123@gmail.com</code>。</li>
+        </ol>
+      </article>
+    </main>
+
+    <div class="safe-area-bottom"></div>
+    <script>
+      (function () {
+        var doc = document.getElementById("doc");
+        var toc = document.getElementById("toc");
+        if (!doc || !toc) return;
+        var nodes = doc.querySelectorAll("h2, h3");
+        if (!nodes.length) return;
+        var slugCount = {};
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var text = (el.textContent || "").trim();
+          var base = "sec-" + (i + 1);
+          var slug = base;
+          if (slugCount[base]) slug = base + "-" + slugCount[base];
+          slugCount[base] = (slugCount[base] || 0) + 1;
+          if (!el.id) el.id = slug;
+          var a = document.createElement("a");
+          a.href = "#" + el.id;
+          a.textContent = text;
+          if (el.tagName.toLowerCase() === "h3") a.className = "toc__sub";
+          toc.appendChild(a);
+        }
+      })();
+    </script>
+  </body>
+</html>

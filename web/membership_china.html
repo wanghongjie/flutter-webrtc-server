@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="format-detection" content="telephone=no,email=no,address=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <title>会员权益与取消订阅</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: #f6f7f9;
+        color: #1f2430;
+        line-height: 1.75;
+        font-size: 16px;
+        -webkit-text-size-adjust: 100%;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1220; color: #e6e9ef; }
+        .topbar { background: rgba(11, 18, 32, 0.92); border-bottom-color: rgba(148, 163, 184, 0.18); }
+        .card { background: #111a2b; }
+        .toc { background: #111a2b; }
+        .callout { background: #16304a; border-left-color: #38bdf8; }
+        .note { background: #1a2436; }
+        table th { background: #16203a; }
+        code { background: rgba(148, 163, 184, 0.18); }
+      }
+      .safe-area-top { height: env(safe-area-inset-top); }
+      .safe-area-bottom { height: env(safe-area-inset-bottom); }
+      .topbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        height: 52px; padding: 0 16px;
+        background: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+      }
+      .topbar__title { font-size: 17px; font-weight: 600; }
+      .container { max-width: 820px; margin: 0 auto; padding: 16px 18px 48px; }
+      .card {
+        background: #fff; border-radius: 14px; padding: 18px 18px 8px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      }
+      .doc-head__title { font-size: 22px; font-weight: 700; line-height: 1.4; }
+      .doc-head__meta { margin-top: 8px; font-size: 13px; color: #6b7280; }
+      .doc-head__meta .dot { margin: 0 6px; }
+      .callout {
+        margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+        background: #eaf3ff; border-left: 4px solid #2563eb;
+        font-size: 14.5px;
+      }
+      .callout__title { font-weight: 700; margin-bottom: 4px; }
+      .toc { margin-top: 16px; padding: 14px 16px; border-radius: 12px; background: #fff; font-size: 15px; }
+      .toc__title { font-weight: 700; margin-bottom: 6px; }
+      .toc a { display: block; padding: 3px 0; color: #2563eb; text-decoration: none; }
+      .toc a.toc__sub { padding-left: 16px; font-size: 14px; color: #4b5563; }
+      .doc { margin-top: 18px; }
+      .doc h2 {
+        font-size: 19px; margin: 30px 0 10px; padding-left: 10px;
+        border-left: 4px solid #2563eb; line-height: 1.4;
+      }
+      .doc h3 { font-size: 16.5px; margin: 20px 0 8px; }
+      .doc p { margin: 8px 0; }
+      .doc ul, .doc ol { margin: 8px 0; padding-left: 22px; }
+      .doc li { margin: 5px 0; }
+      .doc b { font-weight: 700; }
+      .note {
+        margin: 12px 0; padding: 12px 14px; border-radius: 10px;
+        background: #f3f4f6; font-size: 14.5px;
+      }
+      .note__title { font-weight: 700; margin-bottom: 4px; }
+      table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+      table th, table td { border: 1px solid rgba(148, 163, 184, 0.35); padding: 8px 10px; text-align: left; vertical-align: top; }
+      table th { background: #f3f4f6; font-weight: 600; }
+      code {
+        padding: 1px 5px; border-radius: 4px; background: rgba(15, 23, 42, 0.07);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px;
+      }
+      .steps { counter-reset: step; list-style: none; padding-left: 0; }
+      .steps li { position: relative; padding-left: 30px; margin: 8px 0; }
+      .steps li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 2px;
+        width: 21px; height: 21px; border-radius: 50%;
+        background: #2563eb; color: #fff; font-size: 12.5px;
+        display: flex; align-items: center; justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="safe-area-top"></div>
+    <header class="topbar topbar--sticky">
+      <div class="topbar__title">会员权益与取消订阅</div>
+    </header>
+
+    <main class="container container--doc">
+      <section class="card doc-head">
+        <div class="doc-head__title">RePhone Security 会员说明（国内版）</div>
+        <div class="doc-head__meta">
+          <span>更新日期：<b>2026-10-10</b></span>
+          <span class="dot">·</span>
+          <span>适用版本：<b>国内版（微信支付）</b></span>
+        </div>
+        <div class="callout">
+          <div class="callout__title">一句话说明</div>
+          <div>
+            国内版会员通过 <b>微信支付</b> <b>单次购买</b> 获得，<b>不会自动续费、不会自动扣款</b>，
+            到期后需要您手动再次购买；因此国内版<b>没有「取消订阅」的操作</b>，如需退款请按本文 §4 处理。
+          </div>
+        </div>
+      </section>
+
+      <aside class="toc" aria-label="目录">
+        <div class="toc__title">目录</div>
+        <nav class="toc__nav" id="toc"></nav>
+      </aside>
+
+      <article class="doc card" id="doc">
+        <h2>一、会员权益何时生效</h2>
+
+        <h3>1.1 正常情况：支付成功后 1 分钟内生效</h3>
+        <p>您在 App 内完成微信支付后，会按以下链路发放权益：</p>
+        <ol class="steps">
+          <li>微信支付成功，微信把支付结果<b>异步通知</b>我们的服务器；</li>
+          <li>服务器<b>不信任手机端结果</b>，会主动向微信<b>查单</b>确认该订单确实为「支付成功」；</li>
+          <li>确认无误后写入会员时长，您的会员<b>立即生效</b>。</li>
+        </ol>
+        <p>
+          同时，App 在支付返回后会自动做一次「确认 + 轮询」（最多约 8 次、几十秒内），
+          因此<b>绝大多数情况下，支付成功后几秒到 1 分钟内</b>会员页就会显示为「高级版」并显示到期时间。
+        </p>
+
+        <h3>1.2 会员时长如何计算</h3>
+        <ul>
+          <li><b>月卡</b>：增加 <b>30 天</b>；<b>年卡</b>：增加 <b>365 天</b>。</li>
+          <li>如果您<b>当前已经是会员且未过期</b>，新购时长会在<b>原到期时间上累加</b>（例如原到期 2026-11-01 购买月卡，到期变为 2026-12-01）。</li>
+          <li>如果会员已过期或未开通，则从<b>当前时间</b>开始计算。</li>
+        </ul>
+
+        <h3>1.3 支付成功但会员没到账怎么办</h3>
+        <p>请按以下顺序排查（绝大多数在第 1 步即可恢复）：</p>
+        <ol class="steps">
+          <li><b>重新进入「会员」页面</b>：退出会员页再进入，App 会自动向服务器刷新一次权益状态。</li>
+          <li><b>确认微信已真实扣款</b>：打开微信 →「我 → 服务 → 钱包 → 账单」，确认该笔订单状态为「支付成功」。若显示「已退款/未支付」，说明并未完成付款。</li>
+          <li><b>确认登录的是同一个账号</b>：会员绑定在购买时登录的<b>邮箱账号</b>上，换账号登录看不到。</li>
+          <li><b>等待 5 分钟后重试</b>：极端情况下微信回调有延迟，服务器最长会在下一次刷新时自动补发。</li>
+          <li>仍未到账，请把<b>微信账单截图（含订单号）+ 登录邮箱</b>发送至客服邮箱 <code>dahongwudi123@gmail.com</code>，我们会人工核对补发。</li>
+        </ol>
+        <div class="note">
+          <div class="note__title">为什么不能「下单即开通」？</div>
+          为了防止「刚弹出收银台、还没付款就白拿会员」，服务器<b>只认微信返回的「支付成功」状态</b>，
+          不会根据手机端的任何自报结果发放权益。这也是上面第 2 步要核对微信账单的原因。
+        </div>
+
+        <h2>二、会员包含哪些权益</h2>
+        <table>
+          <tr><th>权益</th><th>免费版</th><th>高级版（会员）</th></tr>
+          <tr><td>设备数量</td><td>不限</td><td>不限</td></tr>
+          <tr><td>实时直播观看</td><td>支持</td><td>支持</td></tr>
+          <tr><td>云端图片</td><td>基础云图</td><td>云端回看</td></tr>
+          <tr><td>去广告</td><td>—</td><td>支持</td></tr>
+        </table>
+        <p>会员权益与<b>账号（邮箱）</b>绑定，不绑定某一台手机：同一账号在任意设备上登录都可享受。</p>
+
+        <h2>三、如何取消订阅</h2>
+
+        <h3>3.1 国内版：无需取消，也不会自动续费</h3>
+        <p>
+          国内版为<b>单次购买（月卡 / 年卡）</b>，<b>不签约自动续费、不开启免密代扣</b>，
+          购买成功后微信<b>不会在到期时自动扣款</b>，到期即自动停止会员权益。
+        </p>
+        <ul>
+          <li>因此<b>没有「取消订阅」入口，也不需要任何取消操作</b>；</li>
+          <li>若想继续用，到期后在会员页<b>重新购买</b>即可；</li>
+          <li>不用担心「忘记取消被扣钱」——国内版不存在这种扣款。</li>
+        </ul>
+        <div class="note">
+          <div class="note__title">会员页出现「来自 iOS / Android 的订阅」？</div>
+          若您的账号<b>曾在海外版（App Store / Google Play）购买过订阅</b>，会员会按渠道区分管理：
+          海外渠道的订阅需要在<b>原购买渠道</b>（苹果/谷歌）取消，微信渠道不受影响。
+          这种情况请联系客服协助处理。
+        </div>
+
+        <h3>3.2 如果您是在 iOS 上购买的（国内版不含此渠道，仅供参考）</h3>
+        <p>若您使用的是海外版并在苹果渠道购买，请到：<b>系统设置 → 顶部 Apple ID → 订阅</b> 中取消。</p>
+
+        <h2>四、退款说明</h2>
+        <p>国内版退款请按以下方式申请：</p>
+        <ol class="steps">
+          <li>打开微信 →「我 → 服务 → 钱包 → 账单」，找到 RePhone Security 的这笔订单；</li>
+          <li>进入订单详情 →「对订单有疑惑 / 联系商户」，按微信引导提交退款申请；</li>
+          <li>也可直接发送邮件至 <code>dahongwudi123@gmail.com</code>，提供<b>登录邮箱 + 微信订单号 + 购买时间</b>。</li>
+        </ol>
+        <ul>
+          <li><b>未使用的会员时长</b>：核实后按剩余时长处理；</li>
+          <li><b>已使用的会员期间</b>：一般不支持退款，具体以微信支付退款规则与双方协商结果为准；</li>
+          <li>退款成功后，对应会员时长会被回收。</li>
+        </ul>
+
+        <h2>五、其他常见问题</h2>
+        <h3>5.1 换手机 / 重装 App 后会员还在吗？</h3>
+        <p>在。会员与<b>邮箱账号</b>绑定，重新登录同一账号即可恢复，无需重复购买。</p>
+
+        <h3>5.2 可以同时买月卡和年卡吗？</h3>
+        <p>可以。时长会累加到同一账号的到期时间上。</p>
+
+        <h3>5.3 支付时提示失败 / 无法调起微信</h3>
+        <ul>
+          <li>确认手机已安装<b>微信</b>并登录；</li>
+          <li>确认网络正常，切换 Wi-Fi / 移动数据后重试；</li>
+          <li>同一时间不要重复点击购买（App 内有防重复点击保护）。</li>
+        </ul>
+
+        <h3>5.4 相机端（被监控的旧手机）需要买会员吗？</h3>
+        <p>不需要。相机端<b>无需登录、无需购买</b>，会员权益作用于<b>监控端账号</b>。</p>
+      </article>
+    </main>
+
+    <div class="safe-area-bottom"></div>
+    <script>
+      (function () {
+        var doc = document.getElementById("doc");
+        var toc = document.getElementById("toc");
+        if (!doc || !toc) return;
+        var nodes = doc.querySelectorAll("h2, h3");
+        if (!nodes.length) return;
+        var slugCount = {};
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          var text = (el.textContent || "").trim();
+          var base = "sec-" + (i + 1);
+          var slug = base;
+          if (slugCount[base]) slug = base + "-" + slugCount[base];
+          slugCount[base] = (slugCount[base] || 0) + 1;
+          if (!el.id) el.id = slug;
+          var a = document.createElement("a");
+          a.href = "#" + el.id;
+          a.textContent = text;
+          if (el.tagName.toLowerCase() === "h3") a.className = "toc__sub";
+          toc.appendChild(a);
+        }
+      })();
+    </script>
+  </body>
+</html>
