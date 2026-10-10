@@ -862,6 +862,23 @@ func (c *WechatPayClient) VerifyNotifySignature(header http.Header, body []byte)
 	return nil
 }
 
+// isWechatTransactionID 判断一个 purchase_token 是否为微信支付订单号（transaction_id）。
+//
+// 微信 transaction_id 是 28 位纯数字；下单阶段写入的 prepay_id 形如 "wx1815..."。
+// 用它可以判断「这笔订单是否真的完成支付并发放过权益」，
+// 从而区分「已支付（status=1）」与「仅下单待支付却被置为生效」的脏数据。
+func isWechatTransactionID(token string) bool {
+	if len(token) < 20 {
+		return false
+	}
+	for i := 0; i < len(token); i++ {
+		if token[i] < '0' || token[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // parseAttach 解析下单时写入的 attach 字符串，格式 "email|plan"。
 func parseAttach(attach string) (email, plan string, ok bool) {
 	if attach == "" {

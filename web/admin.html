@@ -531,7 +531,8 @@
     }).join('');
   }
 
-  var SUB_STATE = { 0: '无/过期', 1: '生效中', 2: '宽限期', 3: '暂停' };
+  // 与 subscriptions.status 同义，见 database/migrations/002_align_subscription_state.sql
+  var SUB_STATE = { 0: '无/过期', 1: '生效中', 2: '待支付', 3: '宽限期', 4: '暂停' };
 
   function loadStats() {
     return api('/api/admin/stats', { days: 7 }).then(function (d) {
@@ -607,7 +608,7 @@
   }
 
   function subStateBadge(v) {
-    var map = { 0: 'gray', 1: 'green', 2: 'gold', 3: 'purple' };
+    var map = { 0: 'gray', 1: 'green', 2: 'gold', 3: 'purple', 4: 'gray' };
     var name = SUB_STATE[v] || ('未知(' + v + ')');
     return '<span class="badge ' + (map[v] || 'gray') + '">' + esc(name) + '</span>';
   }

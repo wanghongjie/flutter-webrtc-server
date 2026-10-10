@@ -461,6 +461,20 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 
 	log.Printf("Refreshing subscription for %s", req.Email)
 
+	// 0. 回收已失效的「微信待支付订单」。
+	//    下单（create-order）只是调起收银台，会预插入一条 status=2 的记录；
+	//    用户可能一直不支付，或直接取消（微信取消支付不会发 notify），
+	//    这条记录就会永久停留在待支付状态。超过 wechatPendingOrderTTL 视为失效，
+	//    置为 0，防止它被任何按 expire_time 判定的逻辑误认成有效权益。
+	if _, err := s.DB.Exec(`
+		UPDATE subscriptions
+		SET status = 0, updated_at = NOW()
+		WHERE email = ? AND platform = 'wechat' AND status = 2
+			AND created_at < DATE_SUB(NOW(), INTERVAL ? SECOND)
+	`, req.Email, int(wechatPendingOrderTTL.Seconds())); err != nil {
+		log.Printf("Error expiring pending wechat orders for %s: %v", req.Email, err)
+	}
+
 	// 1. 优先选择“过期时间最长”的订阅记录（解决同一账号跨平台登录时的同步问题）
 	// 先取 expire_time 最大的记录；如果 expire_time 为空，则回退取最新 created_at。
 	var purchaseToken, productId, basePlanId, orderId string
@@ -470,6 +484,10 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 		SELECT purchase_token, product_id, IFNULL(base_plan_id,''), order_id, platform, expire_time
 		FROM subscriptions
 		WHERE email = ?
+			/* 微信订单必须 status=1（已支付生效）才参与权益判定。
+			   status=2 表示「已下单、待支付」，用户可能还没付款甚至已取消；
+			   若不过滤，刚调起收银台就会被判成有效 VIP（资损）。 */
+			AND (platform <> 'wechat' OR status = 1)
 		ORDER BY
 			CASE WHEN expire_time IS NULL THEN 1 ELSE 0 END ASC,
 			expire_time DESC,
@@ -578,7 +596,10 @@ func (s *Service) HandleRefreshSubscription(w http.ResponseWriter, r *http.Reque
 		err = s.DB.QueryRow("SELECT vip_level, expire_at, last_verify_at FROM users WHERE email = ?", req.Email).Scan(&currentVipLevel, &currentExpireAt, &lastVerifyAt)
 
 		now := time.Now()
-		if currentVipLevel > 0 && currentExpireAt.Valid && currentExpireAt.Time.After(now) {
+		// 缓存命中必须同时满足：users 侧仍是有效 VIP，且 subscriptions 里确有
+		// 一条「生效中且未过期」的记录（主查询已排除待支付订单，这里再校验到期时间）。
+		if currentVipLevel > 0 && currentExpireAt.Valid && currentExpireAt.Time.After(now) &&
+			subExpireAt.Valid && subExpireAt.Time.After(now) {
 			if lastVerifyAt.Valid && now.Sub(lastVerifyAt.Time) < 6*time.Hour {
 				// 缓存命中，直接返回
 				resp := PaymentResponse{

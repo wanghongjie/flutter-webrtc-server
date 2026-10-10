@@ -13,7 +13,7 @@ CREATE TABLE users (
   vip_level     TINYINT UNSIGNED NOT NULL DEFAULT 0,
   expire_at     TIMESTAMP DEFAULT NULL COMMENT 'VIP 过期时间',
   last_verify_at TIMESTAMP DEFAULT NULL COMMENT '最后一次向 Google 校验的时间',
-  subscription_state TINYINT DEFAULT 0 COMMENT '订阅状态: 0=无/过期, 1=生效中, 2=宽限期, 3=暂停',
+  subscription_state TINYINT DEFAULT 0 COMMENT '订阅状态(与 subscriptions.status 同义): 0=无效/过期, 1=生效中, 2=待支付, 3=宽限期, 4=暂停',
   language      VARCHAR(16) DEFAULT NULL COMMENT '语言环境',
   platform      ENUM('android', 'ios', 'wechat') DEFAULT NULL COMMENT '最近一次支付渠道: android=Google Play, ios=App Store, wechat=微信支付',
   fcm_token     VARCHAR(512) DEFAULT NULL COMMENT 'FCM 推送 token',

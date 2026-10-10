@@ -13,6 +13,14 @@ import (
 	"github.com/flutter-webrtc/flutter-webrtc-server/pkg/logger"
 )
 
+// wechatPendingOrderTTL 微信「待支付订单」的有效期。
+//
+// 下单（create-order）只是调起收银台，此时会预插入一条 status=2 的记录；
+// 微信侧订单在约 2 小时后失效，用户也不可能再支付。
+// 超过该时长仍停留在 status=2 的记录会被回收（置 0），
+// 避免它带着「未来有效期」被权益判定逻辑误认成已支付。
+const wechatPendingOrderTTL = 2 * time.Hour
+
 // ———————————————— 请求/响应 DTO ————————————————
 
 // WechatCreateOrderRequest 客户端请求创建微信支付订单的入参。
@@ -128,11 +136,15 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 
 	// 预插入 pending 订单（status=2：已创建、待支付）
 	// 同一 order_id（outTradeNo）重复创建时走 ON DUPLICATE KEY UPDATE 刷新，不报错。
+	//
+	// 关键：**待支付订单不写 expire_time（保持 NULL）**。
+	// 会员时长只在 applyWechatPaymentSuccess 里按真实支付结果计算；
+	// 这里若预先写入 now+duration，任何「按 expire_time 判断是否有效」的查询
+	// 都会把「刚调起收银台、尚未付款」的订单判成有效，直接导致白送会员。
 	now := time.Now()
-	expireAt := now.Add(resolveWechatDuration(req.Plan))
 	_, dbErr := s.DB.Exec(`
 		INSERT INTO subscriptions (email, order_id, product_id, base_plan_id, purchase_token, platform, purchase_time, expire_time, status)
-		VALUES (?, ?, ?, ?, ?, 'wechat', ?, ?, 2)
+		VALUES (?, ?, ?, ?, ?, 'wechat', ?, NULL, 2)
 		ON DUPLICATE KEY UPDATE
 			email = VALUES(email),
 			product_id = VALUES(product_id),
@@ -141,7 +153,7 @@ func (s *Service) HandleCreateWechatOrder(w http.ResponseWriter, r *http.Request
 			platform = 'wechat',
 			updated_at = NOW(),
 			status = 2
-	`, req.Email, outTradeNo, req.ProductID, req.Plan, params.PrepayID, now, expireAt)
+	`, req.Email, outTradeNo, req.ProductID, req.Plan, params.PrepayID, now)
 	if dbErr != nil {
 		logger.Errorf("[WechatPay] 预写入订单失败: %v", dbErr)
 		// 非致命：仍把下单结果返回客户端，后续 notify/verify 兜底落库
@@ -307,9 +319,11 @@ func (s *Service) HandleQueryWechatOrder(w http.ResponseWriter, r *http.Request)
 	// 先查本地 subscriptions 表：如果已经 status=1 成功了，直接返回
 	var status int
 	var txID, plan sql.NullString
-	err := s.DB.QueryRow(`SELECT status, IFNULL(purchase_token,''), IFNULL(base_plan_id,'') FROM subscriptions WHERE order_id = ?`,
-		req.OutTradeNo).Scan(&status, &txID, &plan)
-	if err == nil && status == 1 {
+	err := s.DB.QueryRow(`SELECT status, IFNULL(purchase_token,''), IFNULL(base_plan_id,'') FROM subscriptions WHERE order_id = ? AND email = ?`,
+		req.OutTradeNo, req.Email).Scan(&status, &txID, &plan)
+	// 必须同时确认 purchase_token 是微信 transaction_id：
+	// 待支付记录的 token 是 prepay_id（wx 开头），不能据此判定已支付。
+	if err == nil && status == 1 && isWechatTransactionID(txID.String) {
 		writeJSON(w, http.StatusOK, jsonResponse{
 			Success: true,
 			Data: map[string]interface{}{
@@ -504,9 +518,12 @@ func (s *Service) applyWechatPaymentSuccess(outTradeNo, transactionID, email, pl
 		return fmt.Errorf("applyWechatPaymentSuccess: transaction_id is required")
 	}
 
-	// 3. 如果订单已经 status=1 且 transaction_id 一致，说明重复回调，直接返回。
-	if curStatus == 1 && curTxID.Valid && curTxID.String == transactionID {
-		logger.Infof("[WechatPay] 订单已处理（幂等跳过）: order=%s tx=%s", outTradeNo, transactionID)
+	// 3. 幂等：该订单已按「真实微信 transaction_id」发放过权益则跳过。
+	//
+	//    注意不能只判断 status == 1：下单阶段预插入的待支付记录 token 是
+	//    prepay_id（wx 开头），若仅凭 status 跳过，真正支付成功后会漏发权益。
+	if curStatus == 1 && isWechatTransactionID(curTxID.String) {
+		logger.Infof("[WechatPay] 订单已处理（幂等跳过）: order=%s tx=%s", outTradeNo, curTxID.String)
 		return nil
 	}
 
