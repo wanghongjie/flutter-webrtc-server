@@ -303,6 +303,14 @@
         </select>
       </div>
       <div class="field">
+        <span>在线</span>
+        <select id="uOnline">
+          <option value="">全部</option>
+          <option value="1">仅在线</option>
+          <option value="0">仅离线</option>
+        </select>
+      </div>
+      <div class="field">
         <span>排序</span>
         <select id="uSort">
           <option value="created_at">注册时间</option>
@@ -562,6 +570,7 @@
       status: $('uStatus').value,
       vip: $('uVip').value,
       platform: $('uPlatform').value,
+      online: $('uOnline').value,
       sort: $('uSort').value,
       order: 'desc'
     };
@@ -853,6 +862,7 @@
   $('uStatus').onchange = function () { loadUsers(1); };
   $('uVip').onchange = function () { loadUsers(1); };
   $('uPlatform').onchange = function () { loadUsers(1); };
+  $('uOnline').onchange = function () { loadUsers(1); };
   $('uSort').onchange = function () { loadUsers(1); };
   $('uPrev').onclick = function () { if (state.users.page > 1) loadUsers(state.users.page - 1); };
   $('uNext').onclick = function () { loadUsers(state.users.page + 1); };

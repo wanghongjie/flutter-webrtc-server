@@ -400,7 +400,16 @@ func nullInt(p *int) nullIntDest {
 
 // ---------------------------- 用户列表 ----------------------------
 
-// HandleAdminUsers GET /api/admin/users?page=1&page_size=20&keyword=&status=&vip=&platform=&sort=&order=
+// hasOnlineCameraSQL 表达「在线用户」：该用户作为监控端，至少有一台未撤销且
+// camera_online = 1 的绑定相机。users 表本身没有在线字段，在线状态只落在
+// device_bindings 上，所以用 EXISTS 子查询判断。
+// 口径与列表 device_count 列保持一致（status != 'revoked'）。
+const hasOnlineCameraSQL = `EXISTS (
+		SELECT 1 FROM device_bindings b
+		WHERE b.monitor_email = u.email AND b.status != 'revoked' AND b.camera_online = 1
+	)`
+
+// HandleAdminUsers GET /api/admin/users?page=1&page_size=20&keyword=&status=&vip=&platform=&online=&sort=&order=
 func (s *Service) HandleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, jsonResponse{Success: false, Message: "method not allowed"})
@@ -412,6 +421,7 @@ func (s *Service) HandleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(q.Get("status"))     // active / deleted
 	vip := strings.TrimSpace(q.Get("vip"))           // 0=免费 1=VIP
 	platform := strings.TrimSpace(q.Get("platform")) // android / ios / wechat
+	online := strings.TrimSpace(q.Get("online"))     // 1=有在线设备 0=无在线设备
 	sortBy := strings.TrimSpace(q.Get("sort"))
 	order := strings.ToUpper(strings.TrimSpace(q.Get("order")))
 	page := queryInt(r, "page", 1, 1, 100000)
@@ -435,6 +445,11 @@ func (s *Service) HandleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if platform == "android" || platform == "ios" || platform == "wechat" {
 		where = append(where, "u.platform = ?")
 		args = append(args, platform)
+	}
+	if online == "1" {
+		where = append(where, hasOnlineCameraSQL)
+	} else if online == "0" {
+		where = append(where, "NOT "+hasOnlineCameraSQL)
 	}
 	whereSQL := strings.Join(where, " AND ")
 
